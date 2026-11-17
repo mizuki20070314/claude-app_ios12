@@ -151,8 +151,7 @@ final class ComposerView: UIView {
             textView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
             textView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
             hConstraint,
-            textView.bottomAnchor.constraint(lessThanOrEqualTo: card.bottomAnchor, constant: -52),
-
+            textView.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -52),
             placeholderLabel.topAnchor.constraint(equalTo: textView.topAnchor, constant: 8),
             placeholderLabel.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 4),
 
@@ -265,7 +264,12 @@ final class ComposerView: UIView {
 
     private func updateTextViewHeight() {
         let width = textView.bounds.width
-        guard width > 0 else { return }
+        if width <= 0 {
+            if textViewHeightConstraint?.constant != minTextHeight {
+                textViewHeightConstraint?.constant = minTextHeight
+            }
+            return
+        }
         let size = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         let lineHeight = textView.font?.lineHeight ?? 20
         let maxHeight = lineHeight * maxLines + textView.textContainerInset.top + textView.textContainerInset.bottom

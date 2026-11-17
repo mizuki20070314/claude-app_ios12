@@ -22,9 +22,10 @@ final class ThemedNavigationController: UINavigationController {
         ]
         navigationBar.shadowImage = UIImage()
         navigationBar.setBackgroundImage(UIImage(), for: .default)
-        let chevron = Icons.image(.chevronLeft, size: 22, color: t.textPrimary)
+        let chevron = Icons.image(.chevronLeft, size: 22, color: t.textPrimary).withRenderingMode(.alwaysTemplate)
         navigationBar.backIndicatorImage = chevron
         navigationBar.backIndicatorTransitionMaskImage = chevron
+        navigationBar.tintColor = t.textPrimary
         setNeedsStatusBarAppearanceUpdate()
     }
 

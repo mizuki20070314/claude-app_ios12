@@ -88,10 +88,7 @@ final class AppRouter {
         case "project_detail":
             openProject(id: "demo-project")
         case "search":
-            openSearch()
-            if let vc = topViewController as? SearchViewController {
-                vc.setQuery("Swift")
-            }
+            openSearch(initialQuery: "Swift")
         case "artifact":
             let vc = ArtifactViewController(title: "Todo アプリ", language: "html", code: DemoData.sampleHTML)
             mainNav?.pushViewController(vc, animated: false)
@@ -129,8 +126,10 @@ final class AppRouter {
     }
 
     func openProject(id: String) {
-        let vc = ProjectDetailViewController(projectId: id)
-        mainNav?.setViewControllers([vc], animated: true)
+        let list = ProjectsListViewController()
+        let detail = ProjectDetailViewController(projectId: id)
+        list.navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
+        mainNav?.setViewControllers([list, detail], animated: true)
         closeSidebar()
     }
 
@@ -140,8 +139,9 @@ final class AppRouter {
         closeSidebar()
     }
 
-    func openSearch() {
+    func openSearch(initialQuery: String = "") {
         let vc = SearchViewController()
+        vc.initialQuery = initialQuery
         mainNav?.setViewControllers([vc], animated: true)
         closeSidebar()
     }

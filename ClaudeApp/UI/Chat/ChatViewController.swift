@@ -83,10 +83,13 @@ final class ChatViewController: UIViewController {
         tableView.register(AssistantMessageCell.self, forCellReuseIdentifier: "assistant")
         view.addSubview(tableView)
 
+        let heightSafety = tableView.heightAnchor.constraint(greaterThanOrEqualToConstant: 80)
+        heightSafety.priority = .defaultHigh
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            heightSafety,
         ])
     }
 
