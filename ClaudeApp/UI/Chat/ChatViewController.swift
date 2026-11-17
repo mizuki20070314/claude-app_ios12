@@ -402,14 +402,23 @@ final class ChatViewController: UIViewController {
                 self.isStreaming = false
                 self.composerView.isStreaming = false
                 self.streamHandle = nil
+
                 var cancelled = self.userCancelled
-                if let e = error as? AnthropicError, case .cancelled = e { cancelled = true }
-                if let e = error as? ClaudeAccountError, case .cancelled = e { cancelled = true }
-                    // keep partial text
-                    var c = self.conversation!
-                    c.messages = self.messages
-                    self.conversation = c
-                    ConversationStore.shared.save(c)
+                if let e = error as? AnthropicError {
+                    if case .cancelled = e { cancelled = true }
+                }
+                if let e = error as? ClaudeAccountError {
+                    if case .cancelled = e { cancelled = true }
+                }
+
+                if cancelled {
+                    // Keep partial text after a user cancel or an account-cancel event.
+                    if var c = self.conversation {
+                        c.messages = self.messages
+                        self.conversation = c
+                        ConversationStore.shared.save(c)
+                    }
+                    self.userCancelled = false
                 } else {
                     self.messages[assistantIndex].isError = true
                     let desc = (error as NSError).localizedDescription
@@ -419,11 +428,13 @@ final class ChatViewController: UIViewController {
                     if let cell = self.tableView.cellForRow(at: IndexPath(row: assistantIndex, section: 0)) as? AssistantMessageCell {
                         cell.configure(message: self.messages[assistantIndex], isStreaming: false)
                     }
-                    var c = self.conversation!
-                    c.messages = self.messages
-                    self.conversation = c
-                    ConversationStore.shared.save(c)
+                    if var c = self.conversation {
+                        c.messages = self.messages
+                        self.conversation = c
+                        ConversationStore.shared.save(c)
+                    }
                 }
+
                 if let cell = self.tableView.cellForRow(at: IndexPath(row: assistantIndex, section: 0)) as? AssistantMessageCell {
                     cell.setStreaming(false)
                 }

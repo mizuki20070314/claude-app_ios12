@@ -41,12 +41,14 @@ final class ClaudeAccountAuth: NSObject {
 
     var sessionKey: String? {
         let v = KeychainStore.shared.get(sessionKeyKey)
-        return (v?.isEmpty == false) ? v : nil
+        if let v = v, !v.isEmpty { return v }
+        return nil
     }
 
     var lastActiveOrg: String? {
         let v = KeychainStore.shared.get(lastActiveOrgKey)
-        return (v?.isEmpty == false) ? v : nil
+        if let v = v, !v.isEmpty { return v }
+        return nil
     }
 
     // Public storage helper for organization UUID (Keychain).

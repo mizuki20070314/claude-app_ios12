@@ -250,7 +250,11 @@ final class ClaudeAccountClient {
                 }
                 body["tools"] = [] as [Any]
                 body["effort"] = NSNull()
-                body["thinking_mode"] = extendedThinking ? "adaptive" : NSNull()
+                if extendedThinking {
+                    body["thinking_mode"] = "adaptive"
+                } else {
+                    body["thinking_mode"] = NSNull()
+                }
                 body["completion_request_id"] = completionRequestId
                 body["turn_message_uuids"] = NSNull()
                 body["tool_allowlist"] = [] as [Any]
@@ -371,7 +375,7 @@ final class ClaudeAccountClient {
         guard !ev.data.isEmpty else { return }
         guard let json = try? JSONSerialization.jsonObject(with: Data(ev.data.utf8)) as? [String: Any] else { return }
 
-        let type = (ev.event?.isEmpty == false ? ev.event : nil) ?? (json["type"] as? String)
+        let type = (ev.event != nil && !ev.event!.isEmpty ? ev.event : nil) ?? (json["type"] as? String)
 
         if type == "ping" || type == "mutation_accepted" || type == "message_limit" { return }
 

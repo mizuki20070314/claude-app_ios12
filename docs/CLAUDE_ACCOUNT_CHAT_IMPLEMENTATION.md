@@ -103,6 +103,13 @@ Account mode uses
 with body `{ "message_content": <first user text>, "recent_titles": [] }`
 and parses `title`. No API title model call.
 
+## Errors
+
+`ClaudeAccountError` cases:
+`notLoggedIn`, `missingSession`, `missingOrganization`, `attachmentsUnsupported`,
+`invalidResponse`, `cancelled`, `network(String)`, `serverError(String)`,
+`decoding(String)`. Each case provides a Japanese `errorDescription`.
+
 ## Limitations
 
 - Multi-turn threading relies on server state; `parent_message_uuid` is currently `null`.
