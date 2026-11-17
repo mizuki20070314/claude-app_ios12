@@ -68,10 +68,10 @@ final class UserMessageCell: UITableViewCell {
             let iv = UIImageView()
             iv.contentMode = .scaleAspectFill
             iv.clipsToBounds = true
-            iv.layer.cornerRadius = 8
+            iv.layer.cornerRadius = 10
             iv.translatesAutoresizingMaskIntoConstraints = false
-            iv.widthAnchor.constraint(equalToConstant: 60).isActive = true
-            iv.heightAnchor.constraint(equalToConstant: 60).isActive = true
+            iv.widthAnchor.constraint(equalToConstant: 120).isActive = true
+            iv.heightAnchor.constraint(equalToConstant: 120).isActive = true
             if let img = att.thumbnail {
                 iv.image = img
             }
@@ -102,6 +102,8 @@ final class AssistantMessageCell: UITableViewCell {
     var onRetry: (() -> Void)?
     var onFeedback: ((Int) -> Void)?
     var onArtifactTap: ((String, String?, String) -> Void)?
+    var onThinkingToggle: (() -> Void)?
+    var isLast: Bool = false
 
     private var currentMessage: Message?
 
@@ -125,23 +127,24 @@ final class AssistantMessageCell: UITableViewCell {
         container.addSubview(sparkView)
 
         thinkingView.translatesAutoresizingMaskIntoConstraints = false
+        thinkingView.onToggle = { [weak self] in self?.onThinkingToggle?() }
         container.addSubview(thinkingView)
 
         markdownView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(markdownView)
 
         actionStack.axis = .horizontal
-        actionStack.spacing = 12
+        actionStack.spacing = 4
         actionStack.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(actionStack)
 
-        copyButton.setImage(Icons.image(.copy, size: 16, color: Theme.current.textSecondary), for: .normal)
+        copyButton.setImage(Icons.image(.copy, size: 18, color: Theme.current.textSecondary), for: .normal)
         copyButton.addTarget(self, action: #selector(copyTapped), for: .touchUpInside)
-        retryButton.setImage(Icons.image(.retry, size: 16, color: Theme.current.textSecondary), for: .normal)
+        retryButton.setImage(Icons.image(.retry, size: 18, color: Theme.current.textSecondary), for: .normal)
         retryButton.addTarget(self, action: #selector(retryTapped), for: .touchUpInside)
-        thumbsUpButton.setImage(Icons.image(.thumbsUp, size: 16, color: Theme.current.textSecondary), for: .normal)
+        thumbsUpButton.setImage(Icons.image(.thumbsUp, size: 18, color: Theme.current.textSecondary), for: .normal)
         thumbsUpButton.addTarget(self, action: #selector(thumbsUpTapped), for: .touchUpInside)
-        thumbsDownButton.setImage(Icons.image(.thumbsDown, size: 16, color: Theme.current.textSecondary), for: .normal)
+        thumbsDownButton.setImage(Icons.image(.thumbsDown, size: 18, color: Theme.current.textSecondary), for: .normal)
         thumbsDownButton.addTarget(self, action: #selector(thumbsDownTapped), for: .touchUpInside)
 
         [copyButton, retryButton, thumbsUpButton, thumbsDownButton].forEach { btn in
@@ -174,10 +177,10 @@ final class AssistantMessageCell: UITableViewCell {
         errorStack.addSubview(retryErrorButton)
 
         NSLayoutConstraint.activate([
-            container.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            container.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
             container.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
             container.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
-            container.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+            container.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
 
             sparkView.topAnchor.constraint(equalTo: container.topAnchor),
             sparkView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -236,6 +239,7 @@ final class AssistantMessageCell: UITableViewCell {
 
         // action row visibility
         actionStack.isHidden = isStreaming || message.isError
+        retryButton.isHidden = !isLast
 
         // error row
         errorStack.isHidden = !message.isError
@@ -262,8 +266,8 @@ final class AssistantMessageCell: UITableViewCell {
     }
 
     private func updateFeedbackAppearance(_ feedback: Int?) {
-        let upColor = feedback == 1 ? Theme.current.accent : Theme.current.textSecondary
-        let downColor = feedback == -1 ? Theme.current.accent : Theme.current.textSecondary
+        let upColor = feedback == 1 ? Theme.current.textPrimary : Theme.current.textSecondary
+        let downColor = feedback == -1 ? Theme.current.textPrimary : Theme.current.textSecondary
         thumbsUpButton.setImage(Icons.image(.thumbsUp, size: 16, color: upColor), for: .normal)
         thumbsDownButton.setImage(Icons.image(.thumbsDown, size: 16, color: downColor), for: .normal)
     }

@@ -131,7 +131,16 @@ final class MarkdownParser {
                 while i < n {
                     let r = lines[i]
                     let t = r.trimmingCharacters(in: .whitespaces)
-                    if t.isEmpty { break }
+                    if t.isEmpty {
+                        // End list only when blank line is followed by a non-list line.
+                        var j = i
+                        while j < n && lines[j].trimmingCharacters(in: .whitespaces).isEmpty { j += 1 }
+                        if j < n && parseBulletRaw(lines[j]) != nil {
+                            i = j
+                            continue
+                        }
+                        break
+                    }
                     if let m = parseBulletRaw(r) {
                         items.append(m)
                         i += 1
@@ -150,7 +159,15 @@ final class MarkdownParser {
                 while i < n {
                     let r = lines[i]
                     let t = r.trimmingCharacters(in: .whitespaces)
-                    if t.isEmpty { break }
+                    if t.isEmpty {
+                        var j = i
+                        while j < n && lines[j].trimmingCharacters(in: .whitespaces).isEmpty { j += 1 }
+                        if j < n && parseOrderedRaw(lines[j]) != nil {
+                            i = j
+                            continue
+                        }
+                        break
+                    }
                     if let m = parseOrderedRaw(r) {
                         items.append(m)
                         i += 1

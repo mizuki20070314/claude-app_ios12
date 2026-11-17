@@ -561,6 +561,12 @@ extension ChatViewController: UITableViewDataSource {
         } else {
             let cell = tableView.dequeueReusableCell(withIdentifier: "assistant", for: indexPath) as! AssistantMessageCell
             let streaming = isStreaming && indexPath.row == messages.count - 1
+            let isLast = (indexPath.row == messages.count - 1)
+            cell.isLast = isLast
+            cell.onThinkingToggle = { [weak self, weak tableView] in
+                tableView?.beginUpdates()
+                tableView?.endUpdates()
+            }
             cell.configure(message: msg, isStreaming: streaming)
             cell.onCopy = { [weak self] text in
                 UIPasteboard.general.string = text

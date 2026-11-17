@@ -56,7 +56,8 @@ final class MarkdownRenderer {
             }
             // spacing between blocks
             if idx < rendered.count - 1 {
-                result.append(NSAttributedString(string: "\n"))
+                let para = NSMutableParagraphStyle()
+                result.append(NSAttributedString(string: "\n", attributes: [.paragraphStyle: para]))
             }
         }
         return result
@@ -70,6 +71,9 @@ final class MarkdownRenderer {
         // ensure color
         attr.addAttribute(.foregroundColor, value: style.textColor, range: NSRange(location: 0, length: attr.length))
         let para = NSMutableParagraphStyle()
+        para.headIndent = 0
+        para.firstLineHeadIndent = 0
+        para.tabStops = []
         para.paragraphSpacing = style.paragraphSpacing
         para.lineSpacing = style.lineSpacing
         attr.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: attr.length))
@@ -80,6 +84,9 @@ final class MarkdownRenderer {
         let attr = buildInline(text, baseFont: style.baseFont, bold: false, italic: false, strike: false)
         attr.addAttribute(.foregroundColor, value: style.textColor, range: NSRange(location: 0, length: attr.length))
         let para = NSMutableParagraphStyle()
+        para.headIndent = 0
+        para.firstLineHeadIndent = 0
+        para.tabStops = []
         para.paragraphSpacing = style.paragraphSpacing
         para.lineSpacing = style.lineSpacing
         attr.addAttribute(.paragraphStyle, value: para, range: NSRange(location: 0, length: attr.length))
@@ -281,7 +288,7 @@ final class MarkdownRenderer {
                 if let close = text[after...].firstIndex(of: "`") {
                     let code = String(text[after..<close])
                     let attr = NSMutableAttributedString(string: code, attributes: [
-                        .font: style.codeFont,
+                        .font: style.inlineCodeFont,
                         .foregroundColor: style.inlineCodeTextColor,
                         .backgroundColor: style.inlineCodeBackground
                     ])

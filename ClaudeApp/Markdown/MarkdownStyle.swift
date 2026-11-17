@@ -7,6 +7,7 @@ struct MarkdownStyle {
     var secondaryTextColor: UIColor
     var linkColor: UIColor
     var codeFont: UIFont
+    var inlineCodeFont: UIFont
     var inlineCodeTextColor: UIColor
     var inlineCodeBackground: UIColor
     var codeBlockBackground: UIColor
@@ -33,16 +34,15 @@ struct MarkdownStyle {
                          isDark: Bool) -> MarkdownStyle {
         let baseFont = UIFont.systemFont(ofSize: 16)
         let codeFont = UIFont(name: "Menlo", size: 14) ?? UIFont.systemFont(ofSize: 14)
-        let inlineCodeText: UIColor = isDark
-            ? UIColor(red: 0.95, green: 0.95, blue: 0.95, alpha: 1.0)
-            : UIColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1.0)
+        let inlineCodeFont = UIFont(name: "Menlo", size: baseFont.pointSize * 0.9) ?? UIFont.systemFont(ofSize: baseFont.pointSize * 0.9)
         return MarkdownStyle(
             baseFont: baseFont,
             textColor: textColor,
             secondaryTextColor: secondary,
             linkColor: accent,
             codeFont: codeFont,
-            inlineCodeTextColor: inlineCodeText,
+            inlineCodeFont: inlineCodeFont,
+            inlineCodeTextColor: textColor,
             inlineCodeBackground: codeBackground,
             codeBlockBackground: codeBackground,
             codeBlockTextColor: textColor,

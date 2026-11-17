@@ -268,8 +268,29 @@ extension SidebarViewController: UITableViewDataSource, UITableViewDelegate {
     }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        return nil
+    }
+
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         guard section < sections.count else { return nil }
-        return sections[section].title
+        let container = UIView()
+        container.backgroundColor = .clear
+        let label = UILabel()
+        label.text = sections[section].title
+        label.font = Fonts.sans(size: 13, weight: .semibold)
+        label.textColor = Theme.current.textSecondary
+        label.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 16),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -4)
+        ])
+        return container
+    }
+
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        guard section < sections.count else { return 0 }
+        return 28
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {

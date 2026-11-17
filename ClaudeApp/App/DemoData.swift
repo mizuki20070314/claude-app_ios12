@@ -81,6 +81,7 @@ enum DemoData {
         let imgAttachment = makeImageAttachment()
         demo.messages.append(Message(role: .user, text: "この画像について説明して", attachments: [imgAttachment], createdAt: now.addingTimeInterval(-86400 * 2 + 60)))
         demo.messages.append(Message(role: .assistant, text: "青い正方形の画像ですね。特に問題ありません。", createdAt: now.addingTimeInterval(-86400 * 2 + 90), model: "claude-sonnet-5-5"))
+        demo.messages.append(Message(role: .assistant, text: "青一色の正方形の画像ですね。シンプルなプレースホルダー画像のようです。", createdAt: now.addingTimeInterval(-86400 * 2 + 120), model: "claude-sonnet-5-5"))
         convs.append(demo)
 
         // project-linked chat

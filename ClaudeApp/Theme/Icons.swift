@@ -23,7 +23,7 @@ public enum Icons {
     }
 
     private static func render(_ name: IconName, size: CGFloat, color: UIColor) -> UIImage {
-        let (path, mode) = buildPath(name, size: size)
+        let (path, mode, customWidth) = buildPath(name, size: size)
         let scale = UIScreen.main.scale
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
@@ -35,7 +35,11 @@ public enum Icons {
             case .fill:
                 path.fill()
             case .stroke:
-                path.lineWidth = max(1.0, size * 0.08)
+                if customWidth > 0 {
+                    path.lineWidth = max(1.0, customWidth)
+                } else {
+                    path.lineWidth = max(1.0, size * 0.08)
+                }
                 path.lineCapStyle = .round
                 path.lineJoinStyle = .round
                 path.stroke()
@@ -44,10 +48,11 @@ public enum Icons {
         return img.withRenderingMode(.alwaysOriginal)
     }
 
-    private static func buildPath(_ name: IconName, size: CGFloat) -> (UIBezierPath, IconRenderMode) {
+    private static func buildPath(_ name: IconName, size: CGFloat) -> (UIBezierPath, IconRenderMode, CGFloat) {
         let k = size / 24.0
         let path = UIBezierPath()
         var mode: IconRenderMode = .stroke
+        var customWidth: CGFloat = 0
         switch name {
         case .menu:
             for y in [6, 12, 18] as [CGFloat] {
@@ -103,14 +108,24 @@ public enum Icons {
         case .retry:
             path.addArc(withCenter: CGPoint(x: 12, y: 12), radius: 8, startAngle: -.pi / 2, endAngle: .pi, clockwise: true)
             path.move(to: CGPoint(x: 4, y: 12)); path.addLine(to: CGPoint(x: 4, y: 16)); path.addLine(to: CGPoint(x: 8, y: 16))
-        case .thumbsUp:
-            path.move(to: CGPoint(x: 4, y: 12)); path.addLine(to: CGPoint(x: 4, y: 20)); path.addLine(to: CGPoint(x: 8, y: 20)); path.addLine(to: CGPoint(x: 8, y: 12)); path.close()
-            path.move(to: CGPoint(x: 8, y: 12)); path.addLine(to: CGPoint(x: 14, y: 6)); path.addLine(to: CGPoint(x: 16, y: 8)); path.addLine(to: CGPoint(x: 12, y: 12)); path.close()
-            mode = .fill
-        case .thumbsDown:
-            path.move(to: CGPoint(x: 4, y: 12)); path.addLine(to: CGPoint(x: 4, y: 4)); path.addLine(to: CGPoint(x: 8, y: 4)); path.addLine(to: CGPoint(x: 8, y: 12)); path.close()
-            path.move(to: CGPoint(x: 8, y: 12)); path.addLine(to: CGPoint(x: 14, y: 18)); path.addLine(to: CGPoint(x: 16, y: 16)); path.addLine(to: CGPoint(x: 12, y: 12)); path.close()
-            mode = .fill
+        case .thumbsUp, .thumbsDown:
+            // cuff: rounded rectangle on the left
+            path.append(UIBezierPath(roundedRect: CGRect(x: 3, y: 10, width: 4, height: 11), cornerRadius: 1.5))
+            // hand shape
+            path.move(to: CGPoint(x: 7, y: 10))
+            path.addQuadCurve(to: CGPoint(x: 12, y: 3), controlPoint: CGPoint(x: 7, y: 3))
+            path.addQuadCurve(to: CGPoint(x: 19, y: 10), controlPoint: CGPoint(x: 17, y: 3))
+            path.addLine(to: CGPoint(x: 19, y: 19))
+            path.addLine(to: CGPoint(x: 17, y: 21))
+            path.addLine(to: CGPoint(x: 7, y: 21))
+            if name == .thumbsDown {
+                var t = CGAffineTransform(translationX: 12, y: 12)
+                t = t.rotated(by: .pi)
+                t = t.translatedBy(x: -12, y: -12)
+                path.apply(t)
+            }
+            mode = .stroke
+            customWidth = 1.6 * k
         case .star, .starFill:
             let cx: CGFloat = 12, cy: CGFloat = 12, outer: CGFloat = 10, inner: CGFloat = 4
             var first = true
@@ -244,7 +259,7 @@ public enum Icons {
             path.append(UIBezierPath(ovalIn: CGRect(x: 4, y: 4, width: 16, height: 16)))
         }
         path.apply(CGAffineTransform(scaleX: k, y: k))
-        return (path, mode)
+        return (path, mode, customWidth)
     }
 }
 
