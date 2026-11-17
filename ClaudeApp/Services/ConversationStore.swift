@@ -6,6 +6,7 @@ final class ConversationStore {
     private let queue = DispatchQueue(label: "com.mizuki.claudeios12.conversationstore")
     private var convMap: [String: Conversation] = [:]
     private var projMap: [String: Project] = [:]
+    private var demoMode = false
     private let dir: URL
     private let changeName = Notification.Name("ConversationStore.didChange")
 
@@ -38,11 +39,11 @@ final class ConversationStore {
         return queue.sync { convMap[id] }
     }
 
-    func save(_ conversation: Conversation) {
+    func save(_ conversation: Conversation, touch: Bool = true) {
         queue.async { [weak self] in
             guard let self = self else { return }
             var c = conversation
-            c.updatedAt = Date()
+            if touch { c.updatedAt = Date() }
             self.convMap[c.id] = c
             self.persist(c)
             self.writeIndex()
@@ -57,8 +58,10 @@ final class ConversationStore {
         queue.async { [weak self] in
             guard let self = self else { return }
             self.convMap.removeValue(forKey: id)
-            let url = self.dir.appendingPathComponent("conv_\(id).json")
-            try? FileManager.default.removeItem(at: url)
+            if !self.demoMode {
+                let url = self.dir.appendingPathComponent("conv_\(id).json")
+                try? FileManager.default.removeItem(at: url)
+            }
             self.writeIndex()
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: self.changeName, object: self)
@@ -69,14 +72,14 @@ final class ConversationStore {
     func rename(id: String, title: String) {
         if var c = conversation(id: id) {
             c.title = title
-            save(c)
+            save(c, touch: false)
         }
     }
 
     func toggleStar(id: String) {
         if var c = conversation(id: id) {
             c.isStarred.toggle()
-            save(c)
+            save(c, touch: false)
         }
     }
 
@@ -161,6 +164,7 @@ final class ConversationStore {
 
     func loadDemoData(_ conversations: [Conversation], _ projects: [Project]) {
         queue.sync {
+            self.demoMode = true
             self.convMap = [:]
             for c in conversations { self.convMap[c.id] = c }
             self.projMap = [:]
@@ -198,6 +202,7 @@ final class ConversationStore {
     }
 
     private func persist(_ c: Conversation) {
+        if demoMode { return }
         let url = dir.appendingPathComponent("conv_\(c.id).json")
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601
         if let data = try? enc.encode(c) {
@@ -206,6 +211,7 @@ final class ConversationStore {
     }
 
     private func writeProjects() {
+        if demoMode { return }
         let url = dir.appendingPathComponent("projects.json")
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = .prettyPrinted
         let arr = Array(projMap.values)
@@ -215,6 +221,7 @@ final class ConversationStore {
     }
 
     private func writeIndex() {
+        if demoMode { return }
         let url = dir.appendingPathComponent("index.json")
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = .prettyPrinted
         let summaries = Array(convMap.values).map { c in

@@ -1,6 +1,6 @@
 "projects.title" = "プロジェクト";
 "projects.search.placeholder" = "検索";
-"projects.sort.recent" = "最近のアクティビティ";
+"projects.sort.recent" = "最近";
 "projects.sort.name" = "名前";
 "projects.new" = "新規プロジェクト";
 "projects.empty" = "プロジェクトはまだありません";

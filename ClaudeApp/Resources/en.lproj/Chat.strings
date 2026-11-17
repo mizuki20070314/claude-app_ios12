@@ -1,6 +1,6 @@
 "chat.newChat" = "New chat";
 "chat.emptyTitle" = "Hello, %@";
-"chat.emptySubtitle" = "Ask Claude anything";
+"chat.emptySubtitle" = "How can I help you today?";
 "chat.placeholder" = "Message Claude";
 "chat.send" = "Send";
 "chat.stop" = "Stop";

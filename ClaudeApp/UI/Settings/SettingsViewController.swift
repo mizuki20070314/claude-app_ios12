@@ -3,6 +3,7 @@ import UIKit
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 
     private let tableView = UITableView(frame: .zero, style: .grouped)
+    private let closeButton = IconButton(icon: .close, size: 22, tint: Theme.current.textPrimary)
 
     private var settingsObserver: NSObjectProtocol?
     private var conversationObserver: NSObjectProtocol?
@@ -26,12 +27,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     override func viewDidLoad() {
         super.viewDidLoad()
         title = L("settings.title", "Settings")
-        navigationItem.leftBarButtonItem = UIBarButtonItem(customView: {
-            let b = IconButton(icon: .close, size: 22, tint: nil)
-            b.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
-            return b
-        }())
-        // IconButton init signature may require tint; ensure target works.
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        navigationItem.leftBarButtonItem = UIBarButtonItem(customView: closeButton)
         buildUI()
         applyTheme()
         registerObservers()
@@ -61,6 +58,9 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         view.backgroundColor = t.background
         tableView.backgroundColor = t.background
         tableView.separatorColor = t.separator
+        closeButton.tintColor = t.textPrimary
+        closeButton.refreshColor()
+        navigationItem.leftBarButtonItem?.tintColor = t.textPrimary
     }
 
     private func registerObservers() {
@@ -87,6 +87,27 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         let t = sectionTitles[section]
         return t.isEmpty ? nil : t
+    }
+
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let t = sectionTitles[section]
+        guard !t.isEmpty else { return nil }
+        let v = UIView()
+        let label = UILabel()
+        label.text = t
+        label.font = Fonts.sans(size: 13, weight: .semibold)
+        label.textColor = Theme.current.textSecondary
+        label.translatesAutoresizingMaskIntoConstraints = false
+        v.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: v.leadingAnchor, constant: 16),
+            label.bottomAnchor.constraint(equalTo: v.bottomAnchor, constant: -4)
+        ])
+        return v
+    }
+
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
+        return sectionTitles[section].isEmpty ? 8 : 28
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {

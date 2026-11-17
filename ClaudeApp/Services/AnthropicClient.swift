@@ -71,8 +71,11 @@ final class AnthropicClient {
         var currentStopReason: String? = nil
         var didFinish = false
 
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 300
+
         let delegate = StreamDelegate()
-        let session = URLSession(configuration: .default, delegate: delegate, delegateQueue: nil)
+        let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
 
         let finishComplete: () -> Void = {
             if didFinish { return }
@@ -105,7 +108,6 @@ final class AnthropicClient {
             }
         }
         delegate.onFinish = {
-            // flush parser
             let events = parser.finish()
             for ev in events {
                 self.handleEvent(ev, onThinkingDelta: onThinkingDelta, onTextDelta: onTextDelta, onStopReason: { sr in currentStopReason = sr }, onError: { err in fail(err) }, onMessageStop: { finishComplete() })
@@ -131,18 +133,23 @@ final class AnthropicClient {
         onMessageStop: @escaping () -> Void
     ) {
         guard !ev.data.isEmpty else { return }
-        if ev.event == "ping" { return }
         guard let json = try? JSONSerialization.jsonObject(with: Data(ev.data.utf8)) as? [String: Any] else { return }
 
-        switch ev.event {
+        let type = (ev.event as String?) ?? (json["type"] as? String)
+
+        if type == "ping" { return }
+
+        switch type {
         case "content_block_start":
             break
         case "content_block_delta":
-            if let delta = json["delta"] as? [String: Any], let type = delta["type"] as? String {
-                if type == "text_delta", let text = delta["text"] as? String {
+            if let delta = json["delta"] as? [String: Any], let dtype = delta["type"] as? String {
+                if dtype == "text_delta", let text = delta["text"] as? String {
                     DispatchQueue.main.async { onTextDelta(text) }
-                } else if type == "thinking_delta", let thinking = delta["thinking"] as? String {
+                } else if dtype == "thinking_delta", let thinking = delta["thinking"] as? String {
                     DispatchQueue.main.async { onThinkingDelta(thinking) }
+                } else if dtype == "signature_delta" {
+                    // ignore signature
                 }
             }
         case "message_delta":
@@ -152,8 +159,20 @@ final class AnthropicClient {
         case "message_stop":
             onMessageStop()
         case "error":
-            let msg = (json["error"] as? [String: Any])?["message"] as? String ?? ""
-            onError(AnthropicError.serverError(msg.isEmpty ? "エラーが発生しました。" : msg))
+            let errObj = json["error"] as? [String: Any]
+            let msg = errObj?["message"] as? String ?? ""
+            let errType = errObj?["type"] as? String ?? ""
+            let mapped: Error
+            if errType == "overloaded_error" {
+                mapped = AnthropicError.overloaded
+            } else if errType == "rate_limit_error" {
+                mapped = AnthropicError.rateLimit
+            } else if errType == "authentication_error" || errType == "invalid_request_error" && msg.lowercased().contains("api key") {
+                mapped = AnthropicError.invalidKey
+            } else {
+                mapped = AnthropicError.serverError(msg.isEmpty ? "エラーが発生しました。" : msg)
+            }
+            onError(mapped)
         default:
             break
         }
@@ -162,36 +181,83 @@ final class AnthropicClient {
     private func buildBody(model: String, messages: [Message], system: String?, maxTokens: Int, thinkingEnabled: Bool, thinkingBudget: Int) -> Data {
         var dict: [String: Any] = [:]
         dict["model"] = model
-        var mt = maxTokens
         dict["stream"] = true
         if let system = system, !system.isEmpty { dict["system"] = system }
 
-        var msgs: [[String: Any]] = []
+        // Filter messages
+        var filtered: [Message] = []
         for m in messages {
-            let role = (m.role == .user) ? "user" : "assistant"
+            if m.isError { continue }
             if m.role == .assistant {
-                msgs.append(["role": role, "content": m.text])
+                if m.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { continue }
             } else {
-                var content: [[String: Any]] = []
+                let hasContent = !m.attachments.isEmpty || !m.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                if !hasContent { continue }
+            }
+            filtered.append(m)
+        }
+        // drop leading assistants
+        while let first = filtered.first, first.role == .assistant {
+            filtered.removeFirst()
+        }
+
+        // Build entries
+        struct Entry {
+            var role: String
+            var userBlocks: [[String: Any]]?
+            var assistantText: String
+        }
+        var entries: [Entry] = []
+        for m in filtered {
+            if m.role == .user {
+                var blocks: [[String: Any]] = []
                 for att in m.attachments {
                     if att.kind == .image, let b64 = att.base64Data {
-                        content.append(["type": "image", "source": ["type": "base64", "media_type": att.mediaType, "data": b64]])
+                        blocks.append(["type": "image", "source": ["type": "base64", "media_type": att.mediaType, "data": b64]])
                     } else if att.kind == .textFile, let text = att.textContent {
-                        content.append(["type": "text", "text": "[File: \(att.fileName)]\n\(text)"])
+                        blocks.append(["type": "text", "text": "[File: \(att.fileName)]\n\(text)"])
                     }
                 }
                 if !m.text.isEmpty {
-                    content.append(["type": "text", "text": m.text])
+                    blocks.append(["type": "text", "text": m.text])
                 }
-                if content.isEmpty {
-                    content.append(["type": "text", "text": ""])
+                if blocks.isEmpty { continue }
+                entries.append(Entry(role: "user", userBlocks: blocks, assistantText: ""))
+            } else {
+                entries.append(Entry(role: "assistant", userBlocks: nil, assistantText: m.text))
+            }
+        }
+
+        // Merge consecutive same-role
+        var merged: [Entry] = []
+        for e in entries {
+            if let last = merged.last, last.role == e.role {
+                if e.role == "user" {
+                    var blocks = merged[merged.count - 1].userBlocks ?? []
+                    blocks.append(contentsOf: e.userBlocks ?? [])
+                    merged[merged.count - 1].userBlocks = blocks
+                } else {
+                    let prev = merged[merged.count - 1].assistantText
+                    let newText = prev.isEmpty ? e.assistantText : prev + "\n\n" + e.assistantText
+                    merged[merged.count - 1].assistantText = newText
                 }
-                msgs.append(["role": role, "content": content])
+            } else {
+                merged.append(e)
+            }
+        }
+
+        var msgs: [[String: Any]] = []
+        for e in merged {
+            if e.role == "user" {
+                msgs.append(["role": "user", "content": e.userBlocks ?? []])
+            } else {
+                msgs.append(["role": "assistant", "content": e.assistantText])
             }
         }
         dict["messages"] = msgs
 
         let supports = ModelOption.find(id: model)?.supportsThinking ?? false
+        var mt = maxTokens
         if thinkingEnabled && supports {
             var budget = thinkingBudget
             if budget < 1024 { budget = 1024 }
@@ -244,16 +310,15 @@ final class AnthropicClient {
 
         let task = URLSession.shared.dataTask(with: req) { data, response, error in
             var title: String? = nil
-            if let data = data,
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let content = json["content"] as? [[String: Any]],
-               let first = content.first,
-               let text = first["text"] as? String {
-                title = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                // remove quotes
-                title = title?.trimmingCharacters(in: CharacterSet(charactersIn: "\"'「」"))
-            }
-            DispatchQueue.main.async { completion(title) }
+            defer { DispatchQueue.main.async { completion(title) } }
+            guard let data = data, error == nil else { return }
+            guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+            guard let content = json["content"] as? [[String: Any]], let first = content.first else { return }
+            guard let text = first["text"] as? String else { return }
+            var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            t = t.trimmingCharacters(in: CharacterSet(charactersIn: "\"'「」"))
+            t = t.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !t.isEmpty { title = t }
         }
         task.resume()
     }
@@ -265,16 +330,15 @@ final class AnthropicClient {
         let base = settings.apiBaseURL
         let apiKey = settings.apiKey
 
-        // Try models endpoint
         let url = URL(string: "\(base)/v1/models")!
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
 
-        let task = URLSession.shared.dataTask(with: req) { [weak self] data, response, error in
+        let task = URLSession.shared.dataTask(with: req) { data, response, error in
             if let error = error {
-                if (error as NSError).code == NSURLErrorNotConnectedToInternet {
+                if (error as NSError).code == NSURLErrorNotConnectedToInternet || (error as NSError).code == NSURLErrorNetworkConnectionLost {
                     DispatchQueue.main.async { completion(.failure(AnthropicError.networkOffline)) }
                 } else {
                     DispatchQueue.main.async { completion(.failure(error)) }
@@ -282,60 +346,26 @@ final class AnthropicClient {
                 return
             }
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if (200...299).contains(status) {
+            if status == 200 {
                 DispatchQueue.main.async { completion(.success(())) }
                 return
             }
-            if status == 404 || status == 405 {
-                // fallback: tiny messages call
-                self?.validateKeyFallback(completion: completion)
+            if status == 401 {
+                DispatchQueue.main.async { completion(.failure(AnthropicError.invalidKey)) }
                 return
             }
             var message = ""
-            if let data = data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let err = json["error"] as? [String: Any], let m = err["message"] as? String {
+            if let data = data,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let err = json["error"] as? [String: Any],
+               let m = err["message"] as? String {
                 message = m
             }
             let err: Error
-            if status == 401 { err = AnthropicError.invalidKey }
-            else if status == 429 { err = AnthropicError.rateLimit }
+            if status == 429 { err = AnthropicError.rateLimit }
             else if status == 529 { err = AnthropicError.overloaded }
             else { err = AnthropicError.serverError(message.isEmpty ? "HTTP \(status)" : message) }
             DispatchQueue.main.async { completion(.failure(err)) }
-        }
-        task.resume()
-    }
-
-    private func validateKeyFallback(completion: @escaping (Result<Void, Error>) -> Void) {
-        let settings = SettingsStore.shared
-        let base = settings.apiBaseURL
-        let apiKey = settings.apiKey
-        let url = URL(string: "\(base)/v1/messages")!
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        req.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        req.setValue("application/json", forHTTPHeaderField: "content-type")
-        let body: [String: Any] = [
-            "model": "claude-haiku-5-5",
-            "max_tokens": 1,
-            "stream": false,
-            "messages": [["role": "user", "content": "hi"]]
-        ]
-        req.httpBody = try? JSONSerialization.data(withJSONObject: body, options: [])
-        let task = URLSession.shared.dataTask(with: req) { data, response, error in
-            if let error = error {
-                DispatchQueue.main.async { completion(.failure(error)) }
-                return
-            }
-            let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if (200...299).contains(status) {
-                DispatchQueue.main.async { completion(.success(())) }
-            } else {
-                var message = ""
-                if let data = data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let err = json["error"] as? [String: Any], let m = err["message"] as? String { message = m }
-                let err: Error = (status == 401) ? AnthropicError.invalidKey : AnthropicError.serverError(message.isEmpty ? "HTTP \(status)" : message)
-                DispatchQueue.main.async { completion(.failure(err)) }
-            }
         }
         task.resume()
     }
@@ -396,12 +426,11 @@ private final class StreamDelegate: NSObject, URLSessionDataDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         if let error = error {
             onTransportError?(error)
-            return
-        }
-        if statusCode >= 400 {
+        } else if statusCode >= 400 {
             onHTTPError?(statusCode, receivedData)
-            return
+        } else {
+            onFinish?()
         }
-        onFinish?()
+        session.finishTasksAndInvalidate()
     }
 }

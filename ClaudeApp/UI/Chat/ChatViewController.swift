@@ -84,7 +84,7 @@ final class ChatViewController: UIViewController {
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
@@ -100,6 +100,10 @@ final class ChatViewController: UIViewController {
             composerBottomConstraint,
             tableView.bottomAnchor.constraint(equalTo: composerView.topAnchor),
         ])
+        composerView.setContentHuggingPriority(.required, for: .vertical)
+        composerView.setContentCompressionResistancePriority(.required, for: .vertical)
+        tableView.setContentHuggingPriority(.defaultLow, for: .vertical)
+        tableView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
     }
 
     override func viewDidLayoutSubviews() {
@@ -170,11 +174,11 @@ final class ChatViewController: UIViewController {
 
         NSLayoutConstraint.activate([
             spark.centerXAnchor.constraint(equalTo: v.centerXAnchor),
-            spark.centerYAnchor.constraint(equalTo: v.centerYAnchor, constant: -60),
+            spark.centerYAnchor.constraint(equalTo: v.centerYAnchor, constant: -32),
             spark.widthAnchor.constraint(equalToConstant: 48),
             spark.heightAnchor.constraint(equalToConstant: 48),
 
-            greeting.topAnchor.constraint(equalTo: spark.bottomAnchor, constant: 16),
+            greeting.topAnchor.constraint(equalTo: spark.bottomAnchor, constant: 44),
             greeting.centerXAnchor.constraint(equalTo: v.centerXAnchor),
             greeting.leadingAnchor.constraint(greaterThanOrEqualTo: v.leadingAnchor, constant: 24),
             greeting.trailingAnchor.constraint(lessThanOrEqualTo: v.trailingAnchor, constant: -24),

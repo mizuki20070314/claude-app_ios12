@@ -14,4 +14,6 @@
 "sidebar.user" = "User";
 "sidebar.today" = "Today";
 "sidebar.yesterday" = "Yesterday";
+"sidebar.past7" = "Previous 7 Days";
+"sidebar.past30" = "Previous 30 Days";
 "sidebar.older" = "Older";

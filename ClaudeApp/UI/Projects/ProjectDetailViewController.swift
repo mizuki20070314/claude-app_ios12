@@ -55,19 +55,24 @@ final class ProjectDetailViewController: UIViewController {
         newChatButton.setTitleColor(Theme.current.onAccent, for: .normal)
         starButton.tintColor = Theme.current.accent
         moreButton.tintColor = Theme.current.textPrimary
+        moreButton.setImage(Icons.image(.more, size: 20, color: Theme.current.textPrimary), for: .normal)
     }
 
     private func setupNav() {
-        if !AppRouter.shared.isSidebarPersistent {
-            let menu = IconButton(icon: .menu, size: 22, tint: Theme.current.textPrimary)
-            menu.addTarget(self, action: #selector(menuTapped), for: .touchUpInside)
-            navigationItem.leftBarButtonItem = UIBarButtonItem(customView: menu)
+        let isRoot = (navigationController?.viewControllers.count ?? 1) <= 1
+        if isRoot {
+            if !AppRouter.shared.isSidebarPersistent {
+                let menu = IconButton(icon: .menu, size: 22, tint: Theme.current.textPrimary)
+                menu.addTarget(self, action: #selector(menuTapped), for: .touchUpInside)
+                navigationItem.leftBarButtonItem = UIBarButtonItem(customView: menu)
+            } else {
+                navigationItem.leftBarButtonItem = nil
+            }
+        } else {
+            // pushed: rely on standard nav back button
+            navigationItem.leftBarButtonItem = nil
+            navigationItem.hidesBackButton = false
         }
-        // back button (custom) when possible
-        let back = IconButton(icon: .back, size: 22, tint: Theme.current.textPrimary)
-        back.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        // place as left after menu? We'll add to navigationItem only if no menu? Keep menu priority.
-        // Instead add back button to header.
     }
 
     @objc private func menuTapped() {
@@ -81,20 +86,10 @@ final class ProjectDetailViewController: UIViewController {
     private func setupHeader() {
         headerContainer.translatesAutoresizingMaskIntoConstraints = false
 
-        // Back button
-        let backBtn = IconButton(icon: .back, size: 22, tint: Theme.current.textPrimary)
-        backBtn.addTarget(self, action: #selector(backTapped), for: .touchUpInside)
-        backBtn.translatesAutoresizingMaskIntoConstraints = false
-        headerContainer.addSubview(backBtn)
-
         nameLabel.font = Fonts.serif(size: 24, weight: .bold)
+        nameLabel.numberOfLines = 0
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         headerContainer.addSubview(nameLabel)
-
-        descLabel.font = Fonts.sans(size: 14)
-        descLabel.numberOfLines = 0
-        descLabel.translatesAutoresizingMaskIntoConstraints = false
-        headerContainer.addSubview(descLabel)
 
         starButton.translatesAutoresizingMaskIntoConstraints = false
         starButton.addTarget(self, action: #selector(starTapped), for: .touchUpInside)
@@ -105,6 +100,11 @@ final class ProjectDetailViewController: UIViewController {
         moreButton.addTarget(self, action: #selector(moreTapped), for: .touchUpInside)
         headerContainer.addSubview(moreButton)
 
+        descLabel.font = Fonts.sans(size: 14)
+        descLabel.numberOfLines = 0
+        descLabel.translatesAutoresizingMaskIntoConstraints = false
+        headerContainer.addSubview(descLabel)
+
         newChatButton.setTitle(NSLocalizedString("project.detail.newChat", tableName: "Projects", comment: ""), for: .normal)
         newChatButton.titleLabel?.font = Fonts.sans(size: 15, weight: .semibold)
         newChatButton.layer.cornerRadius = 10
@@ -113,21 +113,16 @@ final class ProjectDetailViewController: UIViewController {
         headerContainer.addSubview(newChatButton)
 
         NSLayoutConstraint.activate([
-            backBtn.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 4),
-            backBtn.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: 4),
-            backBtn.widthAnchor.constraint(equalToConstant: 44),
-            backBtn.heightAnchor.constraint(equalToConstant: 44),
-
             nameLabel.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 8),
-            nameLabel.leadingAnchor.constraint(equalTo: backBtn.trailingAnchor, constant: 4),
+            nameLabel.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: 16),
             nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: starButton.leadingAnchor, constant: -8),
 
-            starButton.centerYAnchor.constraint(equalTo: nameLabel.centerYAnchor),
+            starButton.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 8),
             starButton.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -4),
             starButton.widthAnchor.constraint(equalToConstant: 40),
             starButton.heightAnchor.constraint(equalToConstant: 40),
 
-            moreButton.centerYAnchor.constraint(equalTo: nameLabel.centerYAnchor),
+            moreButton.topAnchor.constraint(equalTo: headerContainer.topAnchor, constant: 8),
             moreButton.trailingAnchor.constraint(equalTo: headerContainer.trailingAnchor, constant: -8),
             moreButton.widthAnchor.constraint(equalToConstant: 40),
             moreButton.heightAnchor.constraint(equalToConstant: 40),
@@ -195,6 +190,19 @@ final class ProjectDetailViewController: UIViewController {
         ConversationStore.shared.toggleStarProject(id: projectId)
     }
 
+    @objc private func editInstructionsTapped() {
+        let vc = ProjectInstructionsViewController(projectId: projectId)
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
+    @objc private func deleteKnowledgeTapped(_ sender: UIButton) {
+        guard var p = project else { return }
+        let idx = sender.tag
+        guard idx >= 0 && idx < p.knowledge.count else { return }
+        p.knowledge.remove(at: idx)
+        ConversationStore.shared.saveProject(p)
+    }
+
     @objc private func moreTapped() {
         let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         alert.addAction(UIAlertAction(title: NSLocalizedString("project.edit.title.edit", tableName: "Projects", comment: ""), style: .default) { [weak self] _ in
@@ -255,7 +263,7 @@ extension ProjectDetailViewController: UITableViewDataSource, UITableViewDelegat
         case .instructions:
             return 1
         case .knowledge:
-            return knowledgeItems().count
+            return 1
         case .chats:
             return conversationsInProject().count
         }
@@ -279,7 +287,7 @@ extension ProjectDetailViewController: UITableViewDataSource, UITableViewDelegat
     }
 
     func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {
-        return 40
+        return 30
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -287,28 +295,141 @@ extension ProjectDetailViewController: UITableViewDataSource, UITableViewDelegat
         switch s {
         case .instructions:
             let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.selectionStyle = .default
+            cell.selectionStyle = .none
+            cell.backgroundColor = .clear
+            let card = UIView()
+            card.backgroundColor = Theme.current.surface
+            card.layer.cornerRadius = 12
+            card.layer.borderWidth = 1
+            card.layer.borderColor = Theme.current.border.cgColor
+            card.translatesAutoresizingMaskIntoConstraints = false
+            cell.contentView.addSubview(card)
+            NSLayoutConstraint.activate([
+                card.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 4),
+                card.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 16),
+                card.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -16),
+                card.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -4)
+            ])
+            let textLabel = UILabel()
+            textLabel.font = Fonts.sans(size: 14)
+            textLabel.numberOfLines = 3
+            textLabel.translatesAutoresizingMaskIntoConstraints = false
             let text = project?.instructions ?? ""
             if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                cell.textLabel?.text = NSLocalizedString("project.detail.instructions.placeholder", tableName: "Projects", comment: "")
-                cell.textLabel?.textColor = Theme.current.textTertiary
+                textLabel.text = NSLocalizedString("project.detail.instructions.placeholder", tableName: "Projects", comment: "")
+                textLabel.textColor = Theme.current.textTertiary
             } else {
-                cell.textLabel?.text = firstThreeLines(text)
-                cell.textLabel?.textColor = Theme.current.textPrimary
+                textLabel.text = firstThreeLines(text)
+                textLabel.textColor = Theme.current.textPrimary
             }
-            cell.textLabel?.numberOfLines = 3
-            cell.textLabel?.font = Fonts.sans(size: 14)
-            cell.backgroundColor = .clear
+            card.addSubview(textLabel)
+            let chevron = UIButton(type: .system)
+            chevron.setImage(Icons.image(.chevronRight, size: 18, color: Theme.current.textSecondary), for: .normal)
+            chevron.translatesAutoresizingMaskIntoConstraints = false
+            chevron.addTarget(self, action: #selector(editInstructionsTapped), for: .touchUpInside)
+            card.addSubview(chevron)
+            NSLayoutConstraint.activate([
+                textLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 14),
+                textLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
+                textLabel.trailingAnchor.constraint(equalTo: chevron.leadingAnchor, constant: -8),
+                textLabel.bottomAnchor.constraint(lessThanOrEqualTo: card.bottomAnchor, constant: -14),
+
+                chevron.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+                chevron.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
+                chevron.widthAnchor.constraint(equalToConstant: 24),
+                chevron.heightAnchor.constraint(equalToConstant: 24)
+            ])
             return cell
         case .knowledge:
-            let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
-            let item = knowledgeItems()[indexPath.row]
-            cell.textLabel?.text = item.fileName
-            cell.textLabel?.textColor = Theme.current.textPrimary
-            cell.detailTextLabel?.text = formattedSize(item)
-            cell.detailTextLabel?.textColor = Theme.current.textSecondary
-            cell.imageView?.image = Icons.image(.file, size: 20, color: Theme.current.textSecondary)
+            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+            cell.selectionStyle = .none
             cell.backgroundColor = .clear
+            let card = UIView()
+            card.backgroundColor = Theme.current.surface
+            card.layer.cornerRadius = 12
+            card.layer.borderWidth = 1
+            card.layer.borderColor = Theme.current.border.cgColor
+            card.translatesAutoresizingMaskIntoConstraints = false
+            cell.contentView.addSubview(card)
+            NSLayoutConstraint.activate([
+                card.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 4),
+                card.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 16),
+                card.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -16),
+                card.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -4)
+            ])
+            let stack = UIStackView()
+            stack.axis = .vertical
+            stack.spacing = 0
+            stack.translatesAutoresizingMaskIntoConstraints = false
+            card.addSubview(stack)
+            NSLayoutConstraint.activate([
+                stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 8),
+                stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 8),
+                stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -8),
+                stack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -8)
+            ])
+            let items = knowledgeItems()
+            if items.isEmpty {
+                let empty = UILabel()
+                empty.text = NSLocalizedString("project.detail.instructions.placeholder", tableName: "Projects", comment: "")
+                empty.font = Fonts.sans(size: 13)
+                empty.textColor = Theme.current.textTertiary
+                empty.numberOfLines = 1
+                stack.addArrangedSubview(empty)
+            } else {
+                for (idx, item) in items.enumerated() {
+                    let row = UIView()
+                    row.translatesAutoresizingMaskIntoConstraints = false
+                    row.heightAnchor.constraint(equalToConstant: 40).isActive = true
+                    let icon = UIImageView(image: Icons.image(.file, size: 18, color: Theme.current.textSecondary))
+                    icon.translatesAutoresizingMaskIntoConstraints = false
+                    row.addSubview(icon)
+                    let name = UILabel()
+                    name.text = item.fileName
+                    name.font = Fonts.sans(size: 14)
+                    name.textColor = Theme.current.textPrimary
+                    name.translatesAutoresizingMaskIntoConstraints = false
+                    row.addSubview(name)
+                    let size = UILabel()
+                    size.text = formattedSize(item)
+                    size.font = Fonts.sans(size: 12)
+                    size.textColor = Theme.current.textSecondary
+                    size.translatesAutoresizingMaskIntoConstraints = false
+                    row.addSubview(size)
+                    let del = UIButton(type: .system)
+                    del.setImage(Icons.image(.trash, size: 16, color: Theme.current.destructive), for: .normal)
+                    del.translatesAutoresizingMaskIntoConstraints = false
+                    del.tag = idx
+                    del.addTarget(self, action: #selector(deleteKnowledgeTapped(_:)), for: .touchUpInside)
+                    row.addSubview(del)
+                    NSLayoutConstraint.activate([
+                        icon.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: 6),
+                        icon.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+                        icon.widthAnchor.constraint(equalToConstant: 20),
+                        icon.heightAnchor.constraint(equalToConstant: 20),
+
+                        name.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
+                        name.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+                        name.trailingAnchor.constraint(lessThanOrEqualTo: size.leadingAnchor, constant: -8),
+
+                        size.trailingAnchor.constraint(equalTo: del.leadingAnchor, constant: -8),
+                        size.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+
+                        del.trailingAnchor.constraint(equalTo: row.trailingAnchor, constant: -6),
+                        del.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+                        del.widthAnchor.constraint(equalToConstant: 32),
+                        del.heightAnchor.constraint(equalToConstant: 32)
+                    ])
+                    stack.addArrangedSubview(row)
+                    if idx < items.count - 1 {
+                        let sep = UIView()
+                        sep.backgroundColor = Theme.current.separator
+                        sep.translatesAutoresizingMaskIntoConstraints = false
+                        sep.heightAnchor.constraint(equalToConstant: 1).isActive = true
+                        stack.addArrangedSubview(sep)
+                    }
+                }
+            }
             return cell
         case .chats:
             let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
@@ -316,7 +437,9 @@ extension ProjectDetailViewController: UITableViewDataSource, UITableViewDelegat
             cell.textLabel?.text = conv.title
             cell.textLabel?.textColor = Theme.current.textPrimary
             cell.detailTextLabel?.text = relativeDate(conv.updatedAt)
+            cell.detailTextLabel?.textColor = Theme.current.textSecondary
             cell.backgroundColor = .clear
+            cell.accessoryType = .disclosureIndicator
             return cell
         }
     }
@@ -338,14 +461,16 @@ extension ProjectDetailViewController: UITableViewDataSource, UITableViewDelegat
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         switch Section(rawValue: indexPath.section)! {
-        case .instructions: return 64
-        case .knowledge: return 44
-        case .chats: return 44
+        case .instructions: return 88
+        case .knowledge:
+            let count = knowledgeItems().count
+            return max(64, 28 + CGFloat(max(count, 1)) * 48)
+        case .chats: return 48
         }
     }
 
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        return Section(rawValue: indexPath.section) == .knowledge
+        return false
     }
 
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
@@ -514,6 +639,8 @@ final class KnowledgePasteEditorViewController: UIViewController {
         bodyView.backgroundColor = Theme.current.surface
         bodyView.textColor = Theme.current.textPrimary
         bodyView.layer.borderColor = Theme.current.border.cgColor
+        navigationItem.rightBarButtonItem?.tintColor = Theme.current.textPrimary
+        navigationItem.leftBarButtonItem?.tintColor = Theme.current.textPrimary
     }
 
     private func setupUI() {
@@ -532,6 +659,8 @@ final class KnowledgePasteEditorViewController: UIViewController {
 
         let save = UIBarButtonItem(title: NSLocalizedString("common.save", tableName: "Projects", comment: ""), style: .done, target: self, action: #selector(saveTapped))
         let cancel = UIBarButtonItem(title: NSLocalizedString("common.cancel", tableName: "Projects", comment: ""), style: .plain, target: self, action: #selector(cancelTapped))
+        save.tintColor = Theme.current.textPrimary
+        cancel.tintColor = Theme.current.textPrimary
         navigationItem.rightBarButtonItem = save
         navigationItem.leftBarButtonItem = cancel
 

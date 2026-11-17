@@ -1,6 +1,6 @@
 "projects.title" = "Projects";
 "projects.search.placeholder" = "Search";
-"projects.sort.recent" = "Recent activity";
+"projects.sort.recent" = "Recent";
 "projects.sort.name" = "Name";
 "projects.new" = "New project";
 "projects.empty" = "No projects yet";

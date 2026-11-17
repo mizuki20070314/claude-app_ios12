@@ -21,10 +21,18 @@ final class ComposerView: UIView {
     private let sendButton = UIButton(type: .system)
 
     private var textViewHeightConstraint: NSLayoutConstraint?
+    private var attachmentStripHeightConstraint: NSLayoutConstraint?
     private let maxLines: CGFloat = 6
+    private let minTextHeight: CGFloat = 36
+    private var lastTextViewWidth: CGFloat = 0
 
     var attachments: [Attachment] = [] {
-        didSet { attachmentStrip.setAttachments(attachments) }
+        didSet {
+            attachmentStrip.setAttachments(attachments)
+            attachmentStrip.isHidden = attachments.isEmpty
+            attachmentStripHeightConstraint?.constant = attachments.isEmpty ? 0 : 64
+            updateTextViewHeight()
+        }
     }
 
     var isStreaming: Bool = false {
@@ -41,7 +49,12 @@ final class ComposerView: UIView {
 
     var text: String {
         get { textView.text ?? "" }
-        set { textView.text = newValue; updatePlaceholder(); updateSendState() }
+        set {
+            textView.text = newValue
+            updatePlaceholder()
+            updateSendState()
+            updateTextViewHeight()
+        }
     }
 
     override init(frame: CGRect = .zero) {
@@ -56,6 +69,9 @@ final class ComposerView: UIView {
 
     private func setup() {
         backgroundColor = .clear
+
+        setContentHuggingPriority(.required, for: .vertical)
+        setContentCompressionResistancePriority(.required, for: .vertical)
 
         card.backgroundColor = Theme.current.composerBackground
         card.layer.cornerRadius = 20
@@ -83,6 +99,8 @@ final class ComposerView: UIView {
         placeholderLabel.text = L("chat.placeholder", "Chat")
         placeholderLabel.font = Fonts.sans(size: 16)
         placeholderLabel.textColor = Theme.current.textTertiary
+        placeholderLabel.textAlignment = .left
+        placeholderLabel.numberOfLines = 1
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
         card.addSubview(placeholderLabel)
 
@@ -112,8 +130,11 @@ final class ComposerView: UIView {
         sendButton.heightAnchor.constraint(equalToConstant: 32).isActive = true
         card.addSubview(sendButton)
 
-        let hConstraint = textView.heightAnchor.constraint(equalToConstant: 36)
+        let hConstraint = textView.heightAnchor.constraint(equalToConstant: minTextHeight)
         textViewHeightConstraint = hConstraint
+
+        let aConstraint = attachmentStrip.heightAnchor.constraint(equalToConstant: 0)
+        attachmentStripHeightConstraint = aConstraint
 
         NSLayoutConstraint.activate([
             card.topAnchor.constraint(equalTo: topAnchor, constant: 6),
@@ -124,12 +145,13 @@ final class ComposerView: UIView {
             attachmentStrip.topAnchor.constraint(equalTo: card.topAnchor, constant: 8),
             attachmentStrip.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
             attachmentStrip.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
-            attachmentStrip.heightAnchor.constraint(equalToConstant: 64),
+            aConstraint,
 
             textView.topAnchor.constraint(equalTo: attachmentStrip.bottomAnchor, constant: 4),
             textView.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
             textView.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
             hConstraint,
+            textView.bottomAnchor.constraint(lessThanOrEqualTo: card.bottomAnchor, constant: -52),
 
             placeholderLabel.topAnchor.constraint(equalTo: textView.topAnchor, constant: 8),
             placeholderLabel.leadingAnchor.constraint(equalTo: textView.leadingAnchor, constant: 4),
@@ -158,6 +180,14 @@ final class ComposerView: UIView {
         updateSendState()
 
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: Theme.didChange, object: nil)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if textView.bounds.width > 0 && textView.bounds.width != lastTextViewWidth {
+            lastTextViewWidth = textView.bounds.width
+            updateTextViewHeight()
+        }
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -239,9 +269,14 @@ final class ComposerView: UIView {
         let size = textView.sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
         let lineHeight = textView.font?.lineHeight ?? 20
         let maxHeight = lineHeight * maxLines + textView.textContainerInset.top + textView.textContainerInset.bottom
-        let newHeight = min(max(size.height, 36), maxHeight)
-        textViewHeightConstraint?.constant = newHeight
-        textView.isScrollEnabled = size.height > maxHeight
+        let newHeight = min(max(size.height, minTextHeight), maxHeight)
+        if textViewHeightConstraint?.constant != newHeight {
+            textViewHeightConstraint?.constant = newHeight
+        }
+        let shouldScroll = size.height > maxHeight + 0.5
+        if textView.isScrollEnabled != shouldScroll {
+            textView.isScrollEnabled = shouldScroll
+        }
     }
 }
 

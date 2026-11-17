@@ -52,7 +52,7 @@ shoot() { # $1 label, $2 devicetype
   if ! xcrun simctl install "$udid" "$APP_PATH"; then echo "Install failed on $label" >&2; return; fi
   for screen in $SCREENS; do
     xcrun simctl terminate "$udid" "$BUNDLE_ID" >/dev/null 2>&1
-    if ! xcrun simctl launch "$udid" "$BUNDLE_ID" -screenshot "$screen" >/dev/null 2>&1; then
+    if ! xcrun simctl launch "$udid" "$BUNDLE_ID" -screenshot "$screen" -AppleLanguages "(${APP_LANG:-ja})" -AppleLocale "${APP_LOCALE:-ja_JP}" >/dev/null 2>&1; then
       echo "Launch failed: $label $screen" >&2; continue
     fi
     sleep "$WAIT"

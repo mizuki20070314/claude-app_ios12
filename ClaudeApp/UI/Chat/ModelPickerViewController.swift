@@ -19,16 +19,15 @@ final class ModelPickerViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = Theme.current.surface
         title = L("chat.model", "Chat")
-        // no nav bar necessarily
 
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.dataSource = self
         tableView.delegate = self
         tableView.separatorStyle = .singleLine
-        // no reuse registration; cells created with subtitle style
+        tableView.tintColor = Theme.current.accent
         view.addSubview(tableView)
 
-        let footer = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 60))
+        let header = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 60))
         let label = UILabel()
         label.text = L("chat.extendedThinking", "Chat")
         label.font = Fonts.sans(size: 15)
@@ -36,18 +35,19 @@ final class ModelPickerViewController: UIViewController {
         label.translatesAutoresizingMaskIntoConstraints = false
         let sw = UISwitch()
         sw.isOn = SettingsStore.shared.extendedThinking
+        sw.onTintColor = Theme.current.accent
         sw.addTarget(self, action: #selector(thinkingChanged(_:)), for: .valueChanged)
         sw.translatesAutoresizingMaskIntoConstraints = false
-        footer.addSubview(label)
-        footer.addSubview(sw)
+        header.addSubview(label)
+        header.addSubview(sw)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: footer.leadingAnchor, constant: 16),
-            label.centerYAnchor.constraint(equalTo: footer.centerYAnchor),
-            sw.trailingAnchor.constraint(equalTo: footer.trailingAnchor, constant: -16),
-            sw.centerYAnchor.constraint(equalTo: footer.centerYAnchor),
+            label.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 16),
+            label.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            sw.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -16),
+            sw.centerYAnchor.constraint(equalTo: header.centerYAnchor),
         ])
         extendedSwitch = sw
-        tableView.tableFooterView = footer
+        tableView.tableHeaderView = header
 
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.topAnchor),
@@ -56,7 +56,7 @@ final class ModelPickerViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
 
-        preferredContentSize = CGSize(width: 320, height: 420)
+        preferredContentSize = CGSize(width: 320, height: 520)
 
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: Theme.didChange, object: nil)
     }
@@ -65,6 +65,8 @@ final class ModelPickerViewController: UIViewController {
 
     @objc private func themeChanged() {
         view.backgroundColor = Theme.current.surface
+        tableView.tintColor = Theme.current.accent
+        extendedSwitch?.onTintColor = Theme.current.accent
         tableView.reloadData()
     }
 
@@ -85,6 +87,7 @@ extension ModelPickerViewController: UITableViewDataSource, UITableViewDelegate 
         cell.detailTextLabel?.text = model.description
         cell.detailTextLabel?.numberOfLines = 2
         cell.accessoryType = (model.id == selectedId) ? .checkmark : .none
+        cell.tintColor = Theme.current.accent
         cell.textLabel?.textColor = Theme.current.textPrimary
         cell.detailTextLabel?.textColor = Theme.current.textSecondary
         cell.backgroundColor = Theme.current.surface

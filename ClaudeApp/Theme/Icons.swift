@@ -91,11 +91,11 @@ public enum Icons {
         case .close:
             path.move(to: CGPoint(x: 6, y: 6)); path.addLine(to: CGPoint(x: 18, y: 18))
             path.move(to: CGPoint(x: 18, y: 6)); path.addLine(to: CGPoint(x: 6, y: 18))
-        case .chevronRight, .back:
+        case .chevronRight:
             path.move(to: CGPoint(x: 9, y: 6)); path.addLine(to: CGPoint(x: 15, y: 12)); path.addLine(to: CGPoint(x: 9, y: 18))
         case .chevronDown:
             path.move(to: CGPoint(x: 6, y: 9)); path.addLine(to: CGPoint(x: 12, y: 15)); path.addLine(to: CGPoint(x: 18, y: 9))
-        case .chevronLeft:
+        case .chevronLeft, .back:
             path.move(to: CGPoint(x: 15, y: 6)); path.addLine(to: CGPoint(x: 9, y: 12)); path.addLine(to: CGPoint(x: 15, y: 18))
         case .copy:
             path.append(UIBezierPath(roundedRect: CGRect(x: 8, y: 4, width: 12, height: 14), cornerRadius: 2))
@@ -123,13 +123,29 @@ public enum Icons {
             path.close()
             mode = .fill
         case .settings:
-            path.append(UIBezierPath(ovalIn: CGRect(x: 8, y: 8, width: 8, height: 8)))
+            // gear: 8 teeth around outer ring with center hole
+            let center = CGPoint(x: 12, y: 12)
+            let outerR: CGFloat = 10
+            let innerR: CGFloat = 6
+            let holeR: CGFloat = 3.5
+            let toothW: CGFloat = 3.2
+            // teeth
             for i in 0..<8 {
                 let angle = CGFloat(i) / 8.0 * 2 * .pi
-                let cx = 12 + cos(angle) * 10
-                let cy = 12 + sin(angle) * 10
-                path.append(UIBezierPath(ovalIn: CGRect(x: cx - 1.5, y: cy - 1.5, width: 3, height: 3)))
+                let tx = center.x + cos(angle) * (outerR - 0.5)
+                let ty = center.y + sin(angle) * (outerR - 0.5)
+                let rect = CGRect(x: tx - toothW/2, y: ty - toothW/2, width: toothW, height: toothW)
+                // rotate tooth rect
+                var t = CGAffineTransform(translationX: tx, y: ty).rotated(by: angle).translatedBy(x: -tx, y: -ty)
+                let tooth = UIBezierPath(roundedRect: rect, cornerRadius: 0.8)
+                tooth.apply(t)
+                path.append(tooth)
             }
+            // outer ring
+            path.append(UIBezierPath(ovalIn: CGRect(x: center.x - outerR + 1.5, y: center.y - outerR + 1.5, width: (outerR-1.5)*2, height: (outerR-1.5)*2)))
+            // hole (even-odd)
+            path.append(UIBezierPath(ovalIn: CGRect(x: center.x - holeR, y: center.y - holeR, width: holeR*2, height: holeR*2)))
+            path.usesEvenOddFillRule = true
             mode = .fill
         case .trash:
             path.move(to: CGPoint(x: 4, y: 6)); path.addLine(to: CGPoint(x: 20, y: 6))

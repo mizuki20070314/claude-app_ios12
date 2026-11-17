@@ -16,18 +16,34 @@ final class SSEParser {
         var events: [SSEEvent] = []
 
         while true {
-            guard let nlRange = buffer.range(of: Data([0x0A])) else { break }
-            var lineData = buffer.subdata(in: buffer.startIndex..<nlRange.lowerBound)
-            // remove through newline
-            buffer.removeSubrange(buffer.startIndex..<nlRange.upperBound)
-            if lineData.last == 0x0D {
-                lineData.removeLast()
+            // find next line terminator (\n, \r, or \r\n)
+            var termIndex: Data.Index? = nil
+            var termLength = 0
+            for i in buffer.indices {
+                let b = buffer[i]
+                if b == 0x0A {
+                    termIndex = i
+                    termLength = 1
+                    break
+                }
+                if b == 0x0D {
+                    let next = buffer.index(after: i)
+                    if next < buffer.endIndex && buffer[next] == 0x0A {
+                        termIndex = i
+                        termLength = 2
+                    } else {
+                        termIndex = i
+                        termLength = 1
+                    }
+                    break
+                }
             }
-            guard let line = String(data: lineData, encoding: .utf8) else {
-                // invalid UTF-8; skip line
-                continue
+            guard let idx = termIndex else { break }
+            let lineData = buffer[buffer.startIndex..<idx]
+            buffer.removeSubrange(buffer.startIndex..<buffer.index(idx, offsetBy: termLength))
+            if let line = String(data: lineData, encoding: .utf8) {
+                processLine(line, events: &events)
             }
-            processLine(line, events: &events)
         }
 
         return events
@@ -35,16 +51,14 @@ final class SSEParser {
 
     func finish() -> [SSEEvent] {
         var events: [SSEEvent] = []
-        // process any remaining buffered partial line
         if !buffer.isEmpty {
-            var lineData = buffer
-            buffer = Data()
-            if lineData.last == 0x0D { lineData.removeLast() }
-            if let line = String(data: lineData, encoding: .utf8) {
-                processLine(line, events: &events)
+            if let line = String(data: buffer, encoding: .utf8) {
+                var l = line
+                if l.hasSuffix("\r") { l.removeLast() }
+                processLine(l, events: &events)
             }
+            buffer = Data()
         }
-        // flush pending event if data present
         if hasData || currentEvent != nil {
             let data = dataLines.joined(separator: "\n")
             events.append(SSEEvent(event: currentEvent, data: data))

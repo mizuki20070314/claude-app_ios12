@@ -2,8 +2,8 @@ import UIKit
 
 final class SidebarViewController: UIViewController {
     private let tableView = UITableView(frame: .zero, style: .plain)
-    private var starred: [Conversation] = []
-    private var recent: [Conversation] = []
+    private let newChatButton = UIButton(type: .system)
+    private var sections: [(title: String, items: [Conversation])] = []
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -26,14 +26,14 @@ final class SidebarViewController: UIViewController {
         header.addSubview(searchButton)
 
         // New chat button
-        let newChatButton = UIButton(type: .system)
         newChatButton.translatesAutoresizingMaskIntoConstraints = false
-        let icon = Icons.image(.plus, size: 18, color: Theme.current.onAccent)
-        newChatButton.setImage(icon, for: .normal)
+        let circleImage = makePlusCircleImage(size: 28)
+        newChatButton.setImage(circleImage, for: .normal)
         newChatButton.setTitle("  " + L("sidebar.newChat", "Sidebar"), for: .normal)
         newChatButton.setTitleColor(Theme.current.accent, for: .normal)
         newChatButton.titleLabel?.font = Fonts.sans(size: 16, weight: .medium)
         newChatButton.contentHorizontalAlignment = .left
+        newChatButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 8)
         newChatButton.addTarget(self, action: #selector(newChatTapped), for: .touchUpInside)
         view.addSubview(newChatButton)
 
@@ -62,6 +62,7 @@ final class SidebarViewController: UIViewController {
         tableView.separatorStyle = .none
         tableView.dataSource = self
         tableView.delegate = self
+        tableView.rowHeight = 44
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
         view.addSubview(tableView)
 
@@ -171,20 +172,65 @@ final class SidebarViewController: UIViewController {
         initialLabel.text = initial
     }
 
-    @objc private func dataChanged() { reloadData() }
-    @objc private func settingsChanged() {
-        // refresh user row by re-viewDidLoad? Instead find labels
-        reloadData()
+    private func makePlusCircleImage(size: CGFloat) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+        let img = renderer.image { ctx in
+            Theme.current.accent.setFill()
+            UIBezierPath(ovalIn: CGRect(x: 0, y: 0, width: size, height: size)).fill()
+            let plus = UIBezierPath()
+            let pad = size * 0.28
+            plus.move(to: CGPoint(x: pad, y: size / 2))
+            plus.addLine(to: CGPoint(x: size - pad, y: size / 2))
+            plus.move(to: CGPoint(x: size / 2, y: pad))
+            plus.addLine(to: CGPoint(x: size / 2, y: size - pad))
+            plus.lineWidth = size * 0.12
+            plus.lineCapStyle = .round
+            UIColor.white.setStroke()
+            plus.stroke()
+        }
+        return img.withRenderingMode(.alwaysOriginal)
     }
+
+    @objc private func dataChanged() { reloadData() }
+    @objc private func settingsChanged() { reloadData() }
     @objc private func themeChanged() {
         view.backgroundColor = Theme.current.sidebarBackground
+        newChatButton.setImage(makePlusCircleImage(size: 28), for: .normal)
         reloadData()
+    }
+
+    private func bucket(for date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return L("sidebar.today", "Sidebar") }
+        let days = cal.dateComponents([.day], from: date, to: Date()).day ?? 0
+        if days <= 7 { return L("sidebar.past7", "Sidebar") }
+        if days <= 30 { return L("sidebar.past30", "Sidebar") }
+        return L("sidebar.older", "Sidebar")
     }
 
     private func reloadData() {
         let all = ConversationStore.shared.allConversations
-        starred = all.filter { $0.isStarred }
-        recent = all.filter { !$0.isStarred }
+        let starred = all.filter { $0.isStarred }
+        let recent = all.filter { !$0.isStarred }
+
+        var newSections: [(title: String, items: [Conversation])] = []
+        if !starred.isEmpty {
+            newSections.append((L("sidebar.starred", "Sidebar"), starred))
+        }
+        // group recent by date buckets in fixed order
+        var buckets: [String: [Conversation]] = [:]
+        for conv in recent {
+            let key = bucket(for: conv.updatedAt)
+            if buckets[key] == nil { buckets[key] = [] }
+            buckets[key]?.append(conv)
+        }
+        let fixedOrder = [L("sidebar.today", "Sidebar"), L("sidebar.past7", "Sidebar"), L("sidebar.past30", "Sidebar"), L("sidebar.older", "Sidebar")]
+        for key in fixedOrder {
+            if let items = buckets[key], !items.isEmpty {
+                newSections.append((key, items))
+            }
+        }
+        sections = newSections
         tableView.reloadData()
     }
 
@@ -195,18 +241,18 @@ final class SidebarViewController: UIViewController {
     @objc private func artifactsTapped() { AppRouter.shared.openArtifacts() }
     @objc private func settingsTapped() { AppRouter.shared.openSettings() }
 
+    private func conversation(at indexPath: IndexPath) -> Conversation? {
+        guard indexPath.section < sections.count else { return nil }
+        let sec = sections[indexPath.section]
+        guard indexPath.row < sec.items.count else { return nil }
+        return sec.items[indexPath.row]
+    }
+
     @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
         let point = gesture.location(in: tableView)
         guard let indexPath = tableView.indexPathForRow(at: point) else { return }
-        let hasStarred = !starred.isEmpty
-        let conv: Conversation
-        if hasStarred {
-            conv = (indexPath.section == 0) ? starred[indexPath.row] : recent[indexPath.row]
-        } else {
-            conv = recent[indexPath.row]
-        }
-        let cell = tableView.cellForRow(at: indexPath) ?? tableView
+        guard let conv = conversation(at: indexPath) else { return }
         let rect = tableView.rectForRow(at: indexPath)
         showConversationActions(for: conv, sourceView: tableView, sourceRect: rect, in: self)
     }
@@ -218,43 +264,22 @@ final class SidebarViewController: UIViewController {
 
 extension SidebarViewController: UITableViewDataSource, UITableViewDelegate {
     func numberOfSections(in tableView: UITableView) -> Int {
-        var count = 0
-        if !starred.isEmpty { count += 1 }
-        if !recent.isEmpty { count += 1 }
-        return max(count, 1)
+        return max(sections.count, 1)
     }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        let hasStarred = !starred.isEmpty
-        if hasStarred {
-            if section == 0 { return L("sidebar.starred", "Sidebar") }
-            return L("sidebar.recent", "Sidebar")
-        } else {
-            if section == 0 { return L("sidebar.recent", "Sidebar") }
-            return nil
-        }
+        guard section < sections.count else { return nil }
+        return sections[section].title
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        let hasStarred = !starred.isEmpty
-        if hasStarred {
-            if section == 0 { return starred.count }
-            return recent.count
-        } else {
-            if section == 0 { return recent.count }
-            return 0
-        }
+        guard section < sections.count else { return 0 }
+        return sections[section].items.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        let hasStarred = !starred.isEmpty
-        let conv: Conversation
-        if hasStarred {
-            conv = (indexPath.section == 0) ? starred[indexPath.row] : recent[indexPath.row]
-        } else {
-            conv = recent[indexPath.row]
-        }
+        guard let conv = conversation(at: indexPath) else { return cell }
         cell.textLabel?.text = conv.title
         cell.textLabel?.font = Fonts.sans(size: 15)
         cell.textLabel?.textColor = Theme.current.textPrimary
@@ -262,33 +287,30 @@ extension SidebarViewController: UITableViewDataSource, UITableViewDelegate {
         cell.selectionStyle = .default
         let selectedBg = UIView()
         selectedBg.backgroundColor = Theme.current.sidebarSelected
+        selectedBg.layer.cornerRadius = 8
+        selectedBg.layer.masksToBounds = true
         cell.selectedBackgroundView = selectedBg
+
+        let isCurrent = (conv.id == AppRouter.shared.currentConversationId)
+        if isCurrent {
+            cell.backgroundColor = Theme.current.sidebarSelected
+            cell.layer.cornerRadius = 8
+            cell.layer.masksToBounds = true
+        } else {
+            cell.layer.cornerRadius = 0
+            cell.layer.masksToBounds = false
+        }
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let hasStarred = !starred.isEmpty
-        let conv: Conversation
-        if hasStarred {
-            conv = (indexPath.section == 0) ? starred[indexPath.row] : recent[indexPath.row]
-        } else {
-            conv = recent[indexPath.row]
-        }
+        guard let conv = conversation(at: indexPath) else { return }
         AppRouter.shared.openConversation(id: conv.id)
         Haptics.light()
     }
 
-    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-        // not used
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 44
     }
-
-    // Long press (context menu removed for iOS 12 compatibility)
-    func tableView(_ tableView: UITableView, shouldShowMenuForRowAt indexPath: IndexPath) -> Bool { return true }
-
-    // Use gesture for long press
-}
-// Long press via delegate not enough; add in viewDidLoad? We'll add gesture.
-extension SidebarViewController {
-    // Add long press handling by overriding? Use a separate setup.
 }

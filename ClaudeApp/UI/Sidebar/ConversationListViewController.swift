@@ -11,6 +11,8 @@ final class ConversationListViewController: UIViewController {
 
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
+        tableView.rowHeight = 44
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -26,36 +28,37 @@ final class ConversationListViewController: UIViewController {
         rebuild()
     }
 
+    private func bucket(for date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return L("sidebar.today", "Sidebar") }
+        let days = cal.dateComponents([.day], from: date, to: Date()).day ?? 0
+        if days <= 7 { return L("sidebar.past7", "Sidebar") }
+        if days <= 30 { return L("sidebar.past30", "Sidebar") }
+        return L("sidebar.older", "Sidebar")
+    }
+
     private func rebuild() {
         let all = ConversationStore.shared.allConversations
-        let cal = Calendar.current
-        var groups: [String: [Conversation]] = [:]
-        var order: [String] = []
-        for conv in all {
-            let key: String
-            if cal.isDateInToday(conv.updatedAt) { key = L("sidebar.today", "Sidebar") }
-            else if cal.isDateInYesterday(conv.updatedAt) { key = L("sidebar.yesterday", "Sidebar") }
-            else { key = L("sidebar.older", "Sidebar") }
-            if groups[key] == nil { groups[key] = []; order.append(key) }
-            groups[key]?.append(conv)
+        // starred section
+        let starred = all.filter { $0.isStarred }
+        let recent = all.filter { !$0.isStarred }
+        var newSections: [(title: String, items: [Conversation])] = []
+        if !starred.isEmpty {
+            newSections.append((L("sidebar.starred", "Sidebar"), starred))
         }
-        sections = order.map { (title: $0, items: groups[$0] ?? []) }
-        // dedupe order preserving
-        var seen = Set<String>()
-        var unique: [(String,[Conversation])] = []
-        for s in sections {
-            if seen.contains(s.title) { continue }
-            seen.insert(s.title)
-            unique.append((s.title, s.items))
+        var buckets: [String: [Conversation]] = [:]
+        for conv in recent {
+            let key = bucket(for: conv.updatedAt)
+            if buckets[key] == nil { buckets[key] = [] }
+            buckets[key]?.append(conv)
         }
-        // merge duplicates
-        var merged: [String: [Conversation]] = [:]
-        var mergedOrder: [String] = []
-        for s in sections {
-            if merged[s.title] == nil { merged[s.title] = []; mergedOrder.append(s.title) }
-            merged[s.title]?.append(contentsOf: s.items)
+        let fixedOrder = [L("sidebar.today", "Sidebar"), L("sidebar.past7", "Sidebar"), L("sidebar.past30", "Sidebar"), L("sidebar.older", "Sidebar")]
+        for key in fixedOrder {
+            if let items = buckets[key], !items.isEmpty {
+                newSections.append((key, items))
+            }
         }
-        sections = mergedOrder.map { (title: $0, items: merged[$0] ?? []) }
+        sections = newSections
         tableView.reloadData()
     }
 
@@ -65,21 +68,20 @@ final class ConversationListViewController: UIViewController {
         tableView.reloadData()
     }
 
+    private func conversation(at indexPath: IndexPath) -> Conversation? {
+        guard indexPath.section < sections.count else { return nil }
+        let sec = sections[indexPath.section]
+        guard indexPath.row < sec.items.count else { return nil }
+        return sec.items[indexPath.row]
+    }
+
     @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
         guard gesture.state == .began else { return }
         let point = gesture.location(in: tableView)
         guard let indexPath = tableView.indexPathForRow(at: point) else { return }
-        // find conv
-        var row = indexPath.row
-        for section in sections {
-            if row < section.items.count {
-                let conv = section.items[row]
-                let rect = tableView.rectForRow(at: indexPath)
-                showConversationActions(for: conv, sourceView: tableView, sourceRect: rect, in: self)
-                return
-            }
-            row -= section.items.count
-        }
+        guard let conv = conversation(at: indexPath) else { return }
+        let rect = tableView.rectForRow(at: indexPath)
+        showConversationActions(for: conv, sourceView: tableView, sourceRect: rect, in: self)
     }
 
     deinit {
@@ -89,7 +91,7 @@ final class ConversationListViewController: UIViewController {
 
 extension ConversationListViewController: UITableViewDataSource, UITableViewDelegate {
     func numberOfSections(in tableView: UITableView) -> Int {
-        return sections.count
+        return max(sections.count, 1)
     }
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         guard section < sections.count else { return nil }
@@ -101,17 +103,28 @@ extension ConversationListViewController: UITableViewDataSource, UITableViewDele
     }
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        guard indexPath.section < sections.count, indexPath.row < sections[indexPath.section].items.count else { return cell }
-        let conv = sections[indexPath.section].items[indexPath.row]
+        guard let conv = conversation(at: indexPath) else { return cell }
         cell.textLabel?.text = conv.title
+        cell.textLabel?.font = Fonts.sans(size: 15)
         cell.textLabel?.textColor = Theme.current.textPrimary
         cell.backgroundColor = .clear
+        let selectedBg = UIView()
+        selectedBg.backgroundColor = Theme.current.sidebarSelected
+        selectedBg.layer.cornerRadius = 8
+        cell.selectedBackgroundView = selectedBg
+        if conv.id == AppRouter.shared.currentConversationId {
+            cell.backgroundColor = Theme.current.sidebarSelected
+            cell.layer.cornerRadius = 8
+            cell.layer.masksToBounds = true
+        }
         return cell
     }
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        guard indexPath.section < sections.count, indexPath.row < sections[indexPath.section].items.count else { return }
-        let conv = sections[indexPath.section].items[indexPath.row]
+        guard let conv = conversation(at: indexPath) else { return }
         AppRouter.shared.openConversation(id: conv.id)
+    }
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        return 44
     }
 }

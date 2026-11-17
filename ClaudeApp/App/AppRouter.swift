@@ -19,6 +19,8 @@ final class AppRouter {
         return rootViewController?.isSidebarPersistent ?? false
     }
 
+    var currentConversationId: String?
+
     private init() {}
 
     func start(window: UIWindow) {
@@ -99,12 +101,14 @@ final class AppRouter {
     }
 
     func startNewChat(projectId: String? = nil) {
+        currentConversationId = nil
         let vc = ChatViewController(conversationId: nil, projectId: projectId)
         mainNav?.setViewControllers([vc], animated: true)
         closeSidebar()
     }
 
     func openConversation(id: String) {
+        currentConversationId = id
         let vc = ChatViewController(conversationId: id, projectId: nil)
         mainNav?.setViewControllers([vc], animated: true)
         closeSidebar()

@@ -56,12 +56,19 @@ final class ArtifactViewController: UIViewController {
     }
 
     private func setupNavButtons() {
-        let copy = UIBarButtonItem(title: NSLocalizedString("artifacts.copy", tableName: "Artifacts", comment: ""), style: .plain, target: self, action: #selector(copyTapped))
-        let share = UIBarButtonItem(barButtonSystemItem: .action, target: self, action: #selector(shareTapped))
+        let copyBtn = IconButton(icon: .copy, size: 22, tint: Theme.current.textPrimary)
+        copyBtn.addTarget(self, action: #selector(copyTapped), for: .touchUpInside)
+        let copy = UIBarButtonItem(customView: copyBtn)
+
+        let shareBtn = IconButton(icon: .share, size: 22, tint: Theme.current.textPrimary)
+        shareBtn.addTarget(self, action: #selector(shareTapped(_:)), for: .touchUpInside)
+        let share = UIBarButtonItem(customView: shareBtn)
+
         navigationItem.rightBarButtonItems = [share, copy]
     }
 
     private func setupSegmented() {
+        segmentedControl.tintColor = Theme.current.textPrimary
         if isPreviewable {
             segmentedControl.insertSegment(withTitle: NSLocalizedString("artifacts.preview", tableName: "Artifacts", comment: ""), at: 0, animated: false)
             segmentedControl.insertSegment(withTitle: NSLocalizedString("artifacts.code", tableName: "Artifacts", comment: ""), at: 1, animated: false)
@@ -202,16 +209,22 @@ final class ArtifactViewController: UIViewController {
         showToast(NSLocalizedString("artifacts.copied", tableName: "Artifacts", comment: ""))
     }
 
-    @objc private func shareTapped(_ sender: UIBarButtonItem) {
+    @objc private func shareTapped(_ sender: Any) {
         let vc = UIActivityViewController(activityItems: [code], applicationActivities: nil)
         if let pop = vc.popoverPresentationController {
-            pop.barButtonItem = sender
+            if let btn = sender as? UIView {
+                pop.sourceView = btn
+                pop.sourceRect = btn.bounds
+            } else if let item = sender as? UIBarButtonItem {
+                pop.barButtonItem = item
+            }
         }
         present(vc, animated: true, completion: nil)
     }
 
     @objc private func themeDidChange() {
         applyTheme()
+        segmentedControl.tintColor = Theme.current.textPrimary
         codeTextView?.backgroundColor = Theme.current.codeBackground
         codeTextView?.textColor = Theme.current.textPrimary
     }

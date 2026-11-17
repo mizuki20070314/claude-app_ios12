@@ -1,6 +1,6 @@
 "chat.newChat" = "新規チャット";
 "chat.emptyTitle" = "こんにちは、%@さん";
-"chat.emptySubtitle" = "Claude に何でも聞いてください";
+"chat.emptySubtitle" = "今日はどのようなお手伝いができますか？";
 "chat.placeholder" = "Claude にメッセージを送信";
 "chat.send" = "送信";
 "chat.stop" = "停止";

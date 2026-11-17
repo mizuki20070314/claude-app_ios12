@@ -14,4 +14,6 @@
 "sidebar.user" = "ユーザー";
 "sidebar.today" = "今日";
 "sidebar.yesterday" = "昨日";
+"sidebar.past7" = "過去7日間";
+"sidebar.past30" = "過去30日間";
 "sidebar.older" = "それ以前";

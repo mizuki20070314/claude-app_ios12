@@ -31,15 +31,15 @@ final class RootViewController: UIViewController {
         view.addSubview(mainNav.view)
         mainNav.didMove(toParent: self)
 
-        addChild(sidebar)
-        sidebar.view.translatesAutoresizingMaskIntoConstraints = true
-        view.addSubview(sidebar.view)
-        sidebar.didMove(toParent: self)
-
         dimmingView.backgroundColor = Theme.current.dimming
         dimmingView.alpha = 0
         dimmingView.translatesAutoresizingMaskIntoConstraints = true
         view.addSubview(dimmingView)
+
+        addChild(sidebar)
+        sidebar.view.translatesAutoresizingMaskIntoConstraints = true
+        view.addSubview(sidebar.view)
+        sidebar.didMove(toParent: self)
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(dimmingTapped))
         dimmingView.addGestureRecognizer(tap)

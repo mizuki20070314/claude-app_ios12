@@ -30,6 +30,7 @@ final class ProjectsListViewController: UIViewController {
         setupSortAndNew()
         setupTable()
         setupEmpty()
+        updateNewButtonTitle()
         reloadProjects()
 
         NotificationCenter.default.addObserver(self, selector: #selector(storeDidChange), name: Notification.Name("ConversationStore.didChange"), object: nil)
@@ -38,6 +39,11 @@ final class ProjectsListViewController: UIViewController {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateNewButtonTitle()
     }
 
     private func applyTheme() {
@@ -179,6 +185,18 @@ final class ProjectsListViewController: UIViewController {
     @objc private func newProjectTapped() {
         let vc = ProjectEditViewController(project: nil)
         navigationController?.pushViewController(vc, animated: true)
+    }
+
+    private func updateNewButtonTitle() {
+        let narrow = view.bounds.width < 360
+        if narrow {
+            newButton.setTitle("＋ 新規", for: .normal)
+            newButton.setImage(nil, for: .normal)
+        } else {
+            newButton.setTitle(NSLocalizedString("projects.new", tableName: "Projects", comment: ""), for: .normal)
+            let plusImg = Icons.image(.plus, size: 14, color: .white)
+            newButton.setImage(plusImg, for: .normal)
+        }
     }
 
     private func reloadProjects() {

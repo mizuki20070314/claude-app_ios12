@@ -15,17 +15,28 @@ final class ThemedNavigationController: UINavigationController {
         navigationBar.isTranslucent = false
         navigationBar.barTintColor = t.background
         navigationBar.backgroundColor = t.background
+        navigationBar.tintColor = t.textPrimary
         navigationBar.titleTextAttributes = [
             .foregroundColor: t.textPrimary,
             .font: Fonts.sans(size: 17, weight: .semibold)
         ]
         navigationBar.shadowImage = UIImage()
         navigationBar.setBackgroundImage(UIImage(), for: .default)
+        let chevron = Icons.image(.chevronLeft, size: 22, color: t.textPrimary)
+        navigationBar.backIndicatorImage = chevron
+        navigationBar.backIndicatorTransitionMaskImage = chevron
         setNeedsStatusBarAppearanceUpdate()
     }
 
     @objc private func themeDidChange(_ notification: Notification) {
         applyTheme()
+    }
+
+    override func pushViewController(_ viewController: UIViewController, animated: Bool) {
+        if let top = topViewController {
+            top.navigationItem.backBarButtonItem = UIBarButtonItem(title: "", style: .plain, target: nil, action: nil)
+        }
+        super.pushViewController(viewController, animated: animated)
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {

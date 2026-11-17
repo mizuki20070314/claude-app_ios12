@@ -9,12 +9,15 @@ enum DemoData {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Todo</title>
     <style>
-    body { font-family: -apple-system, sans-serif; background: #faf9f5; margin: 0; padding: 16px; }
+    body { font-family: -apple-system, sans-serif; background: #FAF9F5; margin: 0; padding: 16px; }
     h1 { color: #D97757; }
     .todo { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid #e7e6e1; }
     .todo.done span { text-decoration: line-through; color: #949494; }
+    .todo span { flex: 1; text-align: left; }
+    .todo input[type="checkbox"] { accent-color: #D97757; }
     button { background: #D97757; color: white; border: none; border-radius: 8px; padding: 8px 12px; }
-    input { flex: 1; padding: 8px; border: 1px solid #e7e6e1; border-radius: 8px; }
+    #inp { flex: 1; padding: 8px; border: 1px solid #e7e6e1; border-radius: 8px; }
+    .del { background: transparent; color: #949494; border: none; border-radius: 6px; padding: 4px 8px; font-size: 16px; }
     </style>
     </head>
     <body>
@@ -26,9 +29,10 @@ enum DemoData {
     </div>
     <script>
     let todos = [{text:'牛乳を買う', done:false},{text:'コードを書く', done:true}];
-    function render(){ const l=document.getElementById('list'); l.innerHTML=''; todos.forEach((t,i)=>{const d=document.createElement('div'); d.className='todo'+(t.done?' done':''); d.innerHTML='<input type="checkbox" '+(t.done?'checked':'')+' onchange="toggle('+i+')"><span>'+t.text+'</span>'; l.appendChild(d);});}
+    function render(){ const l=document.getElementById('list'); l.innerHTML=''; todos.forEach((t,i)=>{const d=document.createElement('div'); d.className='todo'+(t.done?' done':''); d.innerHTML='<input type="checkbox" '+(t.done?'checked':'')+' onchange="toggle('+i+')"><span>'+t.text+'</span><button class="del" onclick="remove('+i+')">×</button>'; l.appendChild(d);});}
     function add(){ const v=document.getElementById('inp').value.trim(); if(v){todos.push({text:v,done:false}); document.getElementById('inp').value=''; render();}}
     function toggle(i){ todos[i].done=!todos[i].done; render();}
+    function remove(i){ todos.splice(i,1); render();}
     render();
     </script>
     </body>

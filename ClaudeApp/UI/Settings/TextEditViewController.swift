@@ -26,7 +26,9 @@ final class TextEditViewController: UIViewController, UITextFieldDelegate, UITex
     override func viewDidLoad() {
         super.viewDidLoad()
         applyTheme()
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: L("common.save", "Settings"), style: .done, target: self, action: #selector(saveTapped))
+        let save = UIBarButtonItem(title: L("common.save", "Settings"), style: .done, target: self, action: #selector(saveTapped))
+        save.tintColor = Theme.current.textPrimary
+        navigationItem.rightBarButtonItem = save
         // fallback if common.save missing
         if navigationItem.rightBarButtonItem?.title == nil { navigationItem.rightBarButtonItem?.title = "保存" }
 
@@ -75,6 +77,7 @@ final class TextEditViewController: UIViewController, UITextFieldDelegate, UITex
         textView.textColor = t.textPrimary
         textView.keyboardAppearance = t.keyboardAppearance
         textField.keyboardAppearance = t.keyboardAppearance
+        navigationItem.rightBarButtonItem?.tintColor = t.textPrimary
     }
 
     @objc private func saveTapped() {
