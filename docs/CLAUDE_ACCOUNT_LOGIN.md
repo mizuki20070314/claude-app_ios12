@@ -45,7 +45,7 @@ Account login does **not** use reverse-engineered cookies, forged tokens, or ant
 ## Limitations
 
 - Claude.ai account sessions are consumer web sessions, not a public third-party API. There is no official Anthropic OAuth for third-party clients in this repository.
-- Chat completion in this app uses the Anthropic Messages API (`/v1/messages`) with an API key. When `authMode == "claudeAccount"`, `AnthropicClient` refuses to send and surfaces `AnthropicError.accountChatUnsupported`. To chat, use an API key.
+- Chat completion supports both modes. When `authMode == "claudeAccount"`, `AnthropicClient` delegates to `ClaudeAccountClient`, which uses the claude.ai cookie session (see `docs/CLAUDE_ACCOUNT_CHAT_IMPLEMENTATION.md`).
 - Login may be blocked by anti-abuse (Cloudflare/Play Integrity equivalents) for non-browser clients; the system browser flow is used to maximize compatibility, but success is not guaranteed.
 - Exact undocumented endpoints (`/api/organizations`, `/api/account`) are used only for validation as evidenced by docs/SPEC.md and Android. No further undocumented chat endpoints are called.
 - Account login is not a way around API billing or Terms of Service.

@@ -49,6 +49,21 @@ final class ClaudeAccountAuth: NSObject {
         return (v?.isEmpty == false) ? v : nil
     }
 
+    // Public storage helper for organization UUID (Keychain).
+    func storeLastActiveOrg(_ org: String) {
+        if !org.isEmpty {
+            _ = KeychainStore.shared.set(org, for: lastActiveOrgKey)
+        }
+    }
+
+    // Clear a stored account session after an explicit 401/403 from claude.ai.
+    func clearSession() {
+        _ = KeychainStore.shared.delete(sessionKeyKey)
+        _ = KeychainStore.shared.delete(lastActiveOrgKey)
+        SettingsStore.shared.accountEmail = ""
+        SettingsStore.shared.authMode = "apiKey"
+    }
+
     var isLoggedIn: Bool {
         return sessionKey != nil && SettingsStore.shared.authMode == "claudeAccount"
     }
@@ -255,6 +270,35 @@ final class ClaudeAccountAuth: NSObject {
         guard let json = try? JSONSerialization.jsonObject(with: data) else { return }
         var email: String?
         var name: String?
+        var org: String?
+
+        func orgFromDict(_ dict: [String: Any]) -> String? {
+            if let account = dict["account"] as? [String: Any],
+               let memberships = account["memberships"] as? [[String: Any]] {
+                for m in memberships {
+                    if let o = m["organization"] as? [String: Any] {
+                        if let u = o["uuid"] as? String ?? o["organization_uuid"] as? String ?? o["organizationId"] as? String { return u }
+                    }
+                    if let u = m["organization_uuid"] as? String ?? m["organizationId"] as? String { return u }
+                }
+            }
+            if let memberships = dict["memberships"] as? [[String: Any]] {
+                for m in memberships {
+                    if let o = m["organization"] as? [String: Any] {
+                        if let u = o["uuid"] as? String ?? o["organization_uuid"] as? String ?? o["organizationId"] as? String { return u }
+                    }
+                    if let u = m["organization_uuid"] as? String ?? m["organizationId"] as? String { return u }
+                }
+            }
+            if let orgs = dict["organizations"] as? [[String: Any]], let first = orgs.first {
+                if let o = first["organization"] as? [String: Any] {
+                    if let u = o["uuid"] as? String ?? o["organization_uuid"] as? String ?? o["organizationId"] as? String { return u }
+                }
+                if let u = first["uuid"] as? String ?? first["organization_uuid"] as? String ?? first["organizationId"] as? String { return u }
+            }
+            return dict["uuid"] as? String ?? dict["organization_uuid"] as? String ?? dict["organizationId"] as? String
+        }
+
         if let dict = json as? [String: Any] {
             email = dict["email"] as? String ?? dict["user_email"] as? String
             name = dict["name"] as? String ?? dict["display_name"] as? String
@@ -265,14 +309,19 @@ final class ClaudeAccountAuth: NSObject {
             if let orgs = dict["organizations"] as? [[String: Any]], let first = orgs.first {
                 if name == nil { name = first["name"] as? String }
             }
+            org = orgFromDict(dict)
         } else if let arr = json as? [[String: Any]], let first = arr.first {
             name = first["name"] as? String
             email = first["email"] as? String
+            org = orgFromDict(first)
         }
         if let e = email, !e.isEmpty {
             SettingsStore.shared.accountEmail = e
         } else if let n = name, !n.isEmpty {
             SettingsStore.shared.accountEmail = n
+        }
+        if let o = org, !o.isEmpty {
+            self.storeLastActiveOrg(o)
         }
     }
 

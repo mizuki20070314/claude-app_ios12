@@ -25,15 +25,20 @@ enum AnthropicError: Error, LocalizedError {
 }
 
 final class StreamHandle {
-    private let task: URLSessionDataTask
-    private let session: URLSession
-    init(task: URLSessionDataTask, session: URLSession) {
+    var task: URLSessionDataTask?
+    var session: URLSession?
+    var onCancel: (() -> Void)?
+    private var cancelled: Bool = false
+    init(task: URLSessionDataTask? = nil, session: URLSession? = nil) {
         self.task = task
         self.session = session
     }
     func cancel() {
-        task.cancel()
-        session.invalidateAndCancel()
+        if cancelled { return }
+        cancelled = true
+        onCancel?()
+        task?.cancel()
+        session?.invalidateAndCancel()
     }
 }
 
@@ -50,6 +55,9 @@ final class AnthropicClient {
         maxTokens: Int,
         thinkingEnabled: Bool,
         thinkingBudget: Int,
+        conversationId: String? = nil,
+        parentMessageUuid: String? = nil,
+        isNewConversation: Bool = false,
         onThinkingDelta: @escaping (String) -> Void,
         onTextDelta: @escaping (String) -> Void,
         onComplete: @escaping (String?) -> Void,
@@ -57,6 +65,23 @@ final class AnthropicClient {
     ) -> StreamHandle {
         let settings = SettingsStore.shared
         if settings.authMode == "claudeAccount" {
+            if ClaudeAccountAuth.shared.isLoggedIn, let sk = ClaudeAccountAuth.shared.sessionKey, !sk.isEmpty {
+                return ClaudeAccountClient.shared.streamMessage(
+                    model: model,
+                    messages: messages,
+                    system: system,
+                    maxTokens: maxTokens,
+                    thinkingEnabled: thinkingEnabled,
+                    thinkingBudget: thinkingBudget,
+                    conversationId: conversationId,
+                    parentMessageUuid: parentMessageUuid,
+                    isNewConversation: isNewConversation,
+                    onThinkingDelta: onThinkingDelta,
+                    onTextDelta: onTextDelta,
+                    onComplete: onComplete,
+                    onError: onError
+                )
+            }
             let session = URLSession(configuration: .ephemeral)
             let dummyTask = session.dataTask(with: URL(string: "https://claude.ai")!)
             let handle = StreamHandle(task: dummyTask, session: session)
@@ -297,9 +322,13 @@ final class AnthropicClient {
 
     // MARK: - Title generation
 
-    func generateTitle(for firstUserText: String, assistantText: String, completion: @escaping (String?) -> Void) {
+    func generateTitle(for firstUserText: String, assistantText: String, conversationId: String? = nil, completion: @escaping (String?) -> Void) {
         let settings = SettingsStore.shared
         if settings.authMode == "claudeAccount" {
+            if ClaudeAccountAuth.shared.isLoggedIn, let sk = ClaudeAccountAuth.shared.sessionKey, !sk.isEmpty {
+                ClaudeAccountClient.shared.generateTitle(for: firstUserText, assistantText: assistantText, conversationId: conversationId, completion: completion)
+                return
+            }
             DispatchQueue.main.async { completion(nil) }
             return
         }

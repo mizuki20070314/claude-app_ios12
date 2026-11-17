@@ -296,6 +296,7 @@ final class ChatViewController: UIViewController {
     // MARK: - Sending
 
     private func send(text: String, attachments: [Attachment]) {
+        let isNewConversation = (conversation == nil)
         // create conversation if nil
         if conversation == nil {
             let model = SettingsStore.shared.selectedModelId
@@ -344,6 +345,8 @@ final class ChatViewController: UIViewController {
             maxTokens: SettingsStore.shared.maxTokens,
             thinkingEnabled: SettingsStore.shared.extendedThinking,
             thinkingBudget: SettingsStore.shared.thinkingBudget,
+            conversationId: conv.id,
+            isNewConversation: isNewConversation,
             onThinkingDelta: { [weak self] delta in
                 guard let self = self else { return }
                 self.messages[assistantIndex].thinking = (self.messages[assistantIndex].thinking ?? "") + delta
@@ -381,7 +384,7 @@ final class ChatViewController: UIViewController {
                     self.hasGeneratedTitle = true
                     let firstUserText = self.messages.first(where: { $0.role == .user })?.text ?? ""
                     let assistantText = self.messages[assistantIndex].text
-                    AnthropicClient.shared.generateTitle(for: firstUserText, assistantText: assistantText, completion: { title in
+                    AnthropicClient.shared.generateTitle(for: firstUserText, assistantText: assistantText, conversationId: self.conversation?.id, completion: { title in
                         guard let title = title, !title.isEmpty else { return }
                         if var c2 = self.conversation {
                             c2.title = title
@@ -401,7 +404,7 @@ final class ChatViewController: UIViewController {
                 self.streamHandle = nil
                 var cancelled = self.userCancelled
                 if let e = error as? AnthropicError, case .cancelled = e { cancelled = true }
-                if cancelled {
+                if let e = error as? ClaudeAccountError, case .cancelled = e { cancelled = true }
                     // keep partial text
                     var c = self.conversation!
                     c.messages = self.messages
@@ -607,6 +610,18 @@ extension ChatViewController: ComposerViewDelegate {
     func composerDidTapStop(_ composer: ComposerView) {
         userCancelled = true
         streamHandle?.cancel()
+        streamHandle = nil
+        isStreaming = false
+        composerView.isStreaming = false
+        if var c = conversation {
+            c.messages = messages
+            conversation = c
+            ConversationStore.shared.save(c)
+        }
+        if let cell = tableView.cellForRow(at: IndexPath(row: messages.count - 1, section: 0)) as? AssistantMessageCell {
+            cell.setStreaming(false)
+        }
+        finalTableUpdate()
     }
 
     func composerDidTapAttach(_ composer: ComposerView) {

@@ -26,8 +26,8 @@ iOS 12 (iPod touch 第6世代 / iPad mini 2 など) 向けの **非公式** Clau
 
 ## Android 版との違い
 
-- チャット送信は **Anthropic API キー** (`console.anthropic.com`) を使用。API 料金が発生します。
-- claude.ai アカウントログイン UI も備えますが、チャット API は未対応のため API キーが必要です。
+- チャット送信は **Anthropic API キー** (`console.anthropic.com`) または **claude.ai アカウント** (セッション Cookie) を使用できます。アカウントモードでは画像添付は未対応です。
+- iOS 12 では `ASWebAuthenticationSession` の Cookie 共有制限により、ログイン後にセッション Cookie が取得できない場合があります (Safari フォールバックを利用)。
 - 会話は端末内 (Application Support の JSON) に保存されます。
 - 音声モード / Web 検索 / Claude Code 連携などは未対応です。
 
