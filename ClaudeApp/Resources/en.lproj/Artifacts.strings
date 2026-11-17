@@ -1,0 +1,10 @@
+"artifacts.title" = "Artifacts";
+"artifacts.empty" = "No artifacts yet";
+"artifacts.filter.all" = "All";
+"artifacts.filter.code" = "Code";
+"artifacts.filter.docs" = "Documents";
+"artifacts.preview" = "Preview";
+"artifacts.code" = "Code";
+"artifacts.copy" = "Copy";
+"artifacts.copied" = "Copied";
+"artifacts.share" = "Share";

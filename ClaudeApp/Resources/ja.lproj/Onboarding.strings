@@ -1,0 +1,14 @@
+"onboarding.welcome.title" = "Claude へようこそ";
+"onboarding.welcome.subtitle" = "あなたの思考のパートナー。文章作成、分析、コーディング、学習をお手伝いします。";
+"onboarding.welcome.start" = "はじめる";
+"onboarding.apikey.title" = "API キーを入力";
+"onboarding.apikey.explanation" = "この非公式クライアントは Anthropic API キーを使用します。console.anthropic.com で取得してください。キーは端末のキーチェーンに安全に保存されます。";
+"onboarding.apikey.placeholder" = "sk-ant-...";
+"onboarding.apikey.show" = "表示";
+"onboarding.apikey.hide" = "隠す";
+"onboarding.apikey.paste" = "ペースト";
+"onboarding.apikey.continue" = "続行";
+"onboarding.apikey.errorEmpty" = "APIキーを入力してください。";
+"onboarding.name.title" = "どのようにお呼びすればよいですか？";
+"onboarding.name.placeholder" = "名前 (任意)";
+"onboarding.name.done" = "完了";

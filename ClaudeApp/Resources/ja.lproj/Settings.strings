@@ -1,0 +1,59 @@
+"settings.title" = "設定";
+"common.save" = "保存";
+"common.delete" = "削除";
+"common.cancel" = "キャンセル";
+"common.done" = "完了";
+
+"settings.section.profile" = "プロフィール";
+"settings.profile.name" = "名前";
+"settings.profile.editName.title" = "名前を編集";
+
+"settings.section.account" = "アカウント";
+"settings.account.apikey" = "API キー";
+"settings.account.apikey.title" = "API キー";
+"settings.account.apikey.verify" = "検証";
+"settings.account.apikey.delete" = "削除";
+"settings.account.apikey.deleteConfirm" = "APIキーを削除しますか？";
+
+"settings.section.appearance" = "外観";
+"settings.appearance.theme" = "テーマ";
+"settings.appearance.theme.system" = "システム";
+"settings.appearance.theme.light" = "ライト";
+"settings.appearance.theme.dark" = "ダーク";
+
+"settings.section.model" = "モデル";
+"settings.model.default" = "デフォルトモデル";
+"settings.model.extendedThinking" = "拡張思考";
+"settings.model.thinkingBudget" = "思考の予算";
+"settings.model.maxTokens" = "最大出力トークン";
+
+"settings.section.style" = "スタイル";
+"settings.style.normal" = "ノーマル";
+"settings.style.concise" = "簡潔";
+"settings.style.explanatory" = "説明的";
+"settings.style.formal" = "フォーマル";
+"settings.style.normal.desc" = "標準的な応答";
+"settings.style.concise.desc" = "短く要点のみ";
+"settings.style.explanatory.desc" = "詳しく解説";
+"settings.style.formal.desc" = "フォーマルな文体";
+
+"settings.section.chat" = "チャット";
+"settings.chat.sendWithReturn" = "Return キーで送信";
+"settings.chat.haptics" = "触覚フィードバック";
+
+"settings.section.data" = "データ";
+"settings.data.chatCount" = "チャット数";
+"settings.data.deleteAll" = "すべてのチャットを削除";
+"settings.data.deleteAllConfirm" = "すべてのチャットを削除しますか？この操作は取り消せません。";
+
+"settings.section.advanced" = "詳細";
+"settings.advanced.apiBaseURL" = "API ベース URL";
+
+"settings.section.info" = "情報";
+"settings.info.version" = "バージョン";
+"settings.info.description" = "Android 版 Claude アプリを参考にした iOS 12 向け非公式クライアント";
+"settings.info.terms" = "利用規約";
+"settings.info.privacy" = "プライバシー";
+
+"settings.signout" = "サインアウト";
+"settings.signout.confirm" = "サインアウトしますか？APIキーが削除されます。";

@@ -6,9 +6,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        window = UIWindow(frame: UIScreen.main.bounds)
-        window?.rootViewController = AppRouter.rootViewController()
-        window?.makeKeyAndVisible()
+        Theme.setMode(ThemeMode(rawValue: SettingsStore.shared.themeMode) ?? .system)
+        let win = UIWindow(frame: UIScreen.main.bounds)
+        self.window = win
+        AppRouter.shared.start(window: win)
         return true
     }
 }

@@ -1,0 +1,14 @@
+"onboarding.welcome.title" = "Welcome to Claude";
+"onboarding.welcome.subtitle" = "Your thinking partner. Helping with writing, analysis, coding, and learning.";
+"onboarding.welcome.start" = "Get started";
+"onboarding.apikey.title" = "Enter your API key";
+"onboarding.apikey.explanation" = "This unofficial client uses an Anthropic API key. Get one at console.anthropic.com. The key is stored securely in your device keychain.";
+"onboarding.apikey.placeholder" = "sk-ant-...";
+"onboarding.apikey.show" = "Show";
+"onboarding.apikey.hide" = "Hide";
+"onboarding.apikey.paste" = "Paste";
+"onboarding.apikey.continue" = "Continue";
+"onboarding.apikey.errorEmpty" = "Please enter an API key.";
+"onboarding.name.title" = "What should we call you?";
+"onboarding.name.placeholder" = "Name (optional)";
+"onboarding.name.done" = "Done";

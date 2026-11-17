@@ -1,0 +1,17 @@
+"sidebar.newChat" = "New Chat";
+"sidebar.chats" = "Chats";
+"sidebar.projects" = "Projects";
+"sidebar.artifacts" = "Artifacts";
+"sidebar.starred" = "Starred";
+"sidebar.recent" = "Recent";
+"sidebar.search" = "Search";
+"sidebar.searchPlaceholder" = "Search";
+"sidebar.star" = "Star";
+"sidebar.unstar" = "Unstar";
+"sidebar.rename" = "Rename";
+"sidebar.delete" = "Delete";
+"sidebar.deleteConfirm" = "Delete?";
+"sidebar.user" = "User";
+"sidebar.today" = "Today";
+"sidebar.yesterday" = "Yesterday";
+"sidebar.older" = "Older";

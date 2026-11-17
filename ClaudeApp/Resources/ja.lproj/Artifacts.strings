@@ -1,0 +1,10 @@
+"artifacts.title" = "アーティファクト";
+"artifacts.empty" = "アーティファクトはまだありません";
+"artifacts.filter.all" = "すべて";
+"artifacts.filter.code" = "コード";
+"artifacts.filter.docs" = "ドキュメント";
+"artifacts.preview" = "プレビュー";
+"artifacts.code" = "コード";
+"artifacts.copy" = "コピー";
+"artifacts.copied" = "コピーしました";
+"artifacts.share" = "共有";

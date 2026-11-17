@@ -1,0 +1,59 @@
+"settings.title" = "Settings";
+"common.save" = "Save";
+"common.delete" = "Delete";
+"common.cancel" = "Cancel";
+"common.done" = "Done";
+
+"settings.section.profile" = "Profile";
+"settings.profile.name" = "Name";
+"settings.profile.editName.title" = "Edit name";
+
+"settings.section.account" = "Account";
+"settings.account.apikey" = "API key";
+"settings.account.apikey.title" = "API key";
+"settings.account.apikey.verify" = "Verify";
+"settings.account.apikey.delete" = "Delete";
+"settings.account.apikey.deleteConfirm" = "Delete the API key?";
+
+"settings.section.appearance" = "Appearance";
+"settings.appearance.theme" = "Theme";
+"settings.appearance.theme.system" = "System";
+"settings.appearance.theme.light" = "Light";
+"settings.appearance.theme.dark" = "Dark";
+
+"settings.section.model" = "Model";
+"settings.model.default" = "Default model";
+"settings.model.extendedThinking" = "Extended thinking";
+"settings.model.thinkingBudget" = "Thinking budget";
+"settings.model.maxTokens" = "Max output tokens";
+
+"settings.section.style" = "Style";
+"settings.style.normal" = "Normal";
+"settings.style.concise" = "Concise";
+"settings.style.explanatory" = "Explanatory";
+"settings.style.formal" = "Formal";
+"settings.style.normal.desc" = "Standard responses";
+"settings.style.concise.desc" = "Short and to the point";
+"settings.style.explanatory.desc" = "Detailed explanations";
+"settings.style.formal.desc" = "Formal tone";
+
+"settings.section.chat" = "Chat";
+"settings.chat.sendWithReturn" = "Send with Return";
+"settings.chat.haptics" = "Haptic feedback";
+
+"settings.section.data" = "Data";
+"settings.data.chatCount" = "Chat count";
+"settings.data.deleteAll" = "Delete all chats";
+"settings.data.deleteAllConfirm" = "Delete all chats? This cannot be undone.";
+
+"settings.section.advanced" = "Advanced";
+"settings.advanced.apiBaseURL" = "API base URL";
+
+"settings.section.info" = "Info";
+"settings.info.version" = "Version";
+"settings.info.description" = "Unofficial iOS 12 client inspired by the Android Claude app";
+"settings.info.terms" = "Terms of service";
+"settings.info.privacy" = "Privacy";
+
+"settings.signout" = "Sign out";
+"settings.signout.confirm" = "Sign out? Your API key will be removed.";

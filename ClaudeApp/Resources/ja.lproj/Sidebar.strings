@@ -1,0 +1,17 @@
+"sidebar.newChat" = "新規チャット";
+"sidebar.chats" = "チャット";
+"sidebar.projects" = "プロジェクト";
+"sidebar.artifacts" = "アーティファクト";
+"sidebar.starred" = "スター付き";
+"sidebar.recent" = "最近";
+"sidebar.search" = "検索";
+"sidebar.searchPlaceholder" = "検索";
+"sidebar.star" = "スター";
+"sidebar.unstar" = "スター解除";
+"sidebar.rename" = "名前を変更";
+"sidebar.delete" = "削除";
+"sidebar.deleteConfirm" = "削除しますか？";
+"sidebar.user" = "ユーザー";
+"sidebar.today" = "今日";
+"sidebar.yesterday" = "昨日";
+"sidebar.older" = "それ以前";
