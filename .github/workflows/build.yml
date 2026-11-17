@@ -1,0 +1,83 @@
+name: Build
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Device build (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project ClaudeApp.xcodeproj -scheme ClaudeApp -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build.log
+
+      - name: Package IPA
+        run: |
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/ClaudeApp.app Payload/
+          zip -r ClaudeApp-ios12-unsigned.ipa Payload
+
+      - name: Verify binary
+        run: |
+          APP=build/Build/Products/Release-iphoneos/ClaudeApp.app/ClaudeApp
+          echo "=== LC_BUILD_VERSION / LC_VERSION_MIN ==="
+          otool -l "$APP" | grep -A4 -i "LC_BUILD_VERSION\|LC_VERSION_MIN" || true
+          echo "=== lipo ==="
+          lipo -info "$APP"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ClaudeApp-ios12-unsigned
+          path: ClaudeApp-ios12-unsigned.ipa
+
+      - name: Simulator build
+        run: |
+          set -o pipefail
+          xcodebuild -project ClaudeApp.xcodeproj -scheme ClaudeApp -configuration Debug -sdk iphonesimulator -derivedDataPath build-sim build 2>&1 | tee build-sim.log
+
+      - name: Screenshots
+        run: |
+          set -o pipefail
+          APP_PATH="$PWD/build-sim/Build/Products/Debug-iphonesimulator/ClaudeApp.app" bash scripts/screenshots.sh
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots/
+
+      - name: Print errors on failure
+        if: failure()
+        run: |
+          for f in build.log build-sim.log; do
+            if [ -f "$f" ]; then
+              echo "===== $f ====="
+              grep -E "error:|warning: .*deprecated" "$f" | head -200
+            fi
+          done
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            build.log
+            build-sim.log
