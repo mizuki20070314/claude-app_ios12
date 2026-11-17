@@ -4,8 +4,8 @@ final class ConversationStore {
     static let shared = ConversationStore()
 
     private let queue = DispatchQueue(label: "com.mizuki.claudeios12.conversationstore")
-    private var conversations: [String: Conversation] = [:]
-    private var projects: [String: Project] = [:]
+    private var convMap: [String: Conversation] = [:]
+    private var projMap: [String: Project] = [:]
     private let dir: URL
     private let changeName = Notification.Name("ConversationStore.didChange")
 
@@ -30,12 +30,12 @@ final class ConversationStore {
 
     var allConversations: [Conversation] {
         return queue.sync {
-            Array(conversations.values).sorted { $0.updatedAt > $1.updatedAt }
+            Array(convMap.values).sorted { $0.updatedAt > $1.updatedAt }
         }
     }
 
     func conversation(id: String) -> Conversation? {
-        return queue.sync { conversations[id] }
+        return queue.sync { convMap[id] }
     }
 
     func save(_ conversation: Conversation) {
@@ -43,7 +43,7 @@ final class ConversationStore {
             guard let self = self else { return }
             var c = conversation
             c.updatedAt = Date()
-            self.conversations[c.id] = c
+            self.convMap[c.id] = c
             self.persist(c)
             self.writeIndex()
             self.writeProjects()
@@ -56,7 +56,7 @@ final class ConversationStore {
     func delete(id: String) {
         queue.async { [weak self] in
             guard let self = self else { return }
-            self.conversations.removeValue(forKey: id)
+            self.convMap.removeValue(forKey: id)
             let url = self.dir.appendingPathComponent("conv_\(id).json")
             try? FileManager.default.removeItem(at: url)
             self.writeIndex()
@@ -84,7 +84,7 @@ final class ConversationStore {
         let q = query.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
         guard !q.isEmpty else { return allConversations }
         return queue.sync {
-            conversations.values.filter { c in
+            convMap.values.filter { c in
                 let title = c.title.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
                 if title.contains(q) { return true }
                 for m in c.messages {
@@ -98,7 +98,7 @@ final class ConversationStore {
 
     func conversations(inProject projectId: String?) -> [Conversation] {
         return queue.sync {
-            conversations.values.filter { $0.projectId == projectId }.sorted { $0.updatedAt > $1.updatedAt }
+            convMap.values.filter { $0.projectId == projectId }.sorted { $0.updatedAt > $1.updatedAt }
         }
     }
 
@@ -106,12 +106,12 @@ final class ConversationStore {
 
     var projects: [Project] {
         return queue.sync {
-            Array(projects.values).sorted { $0.updatedAt > $1.updatedAt }
+            Array(projMap.values).sorted { $0.updatedAt > $1.updatedAt }
         }
     }
 
     func project(id: String) -> Project? {
-        return queue.sync { projects[id] }
+        return queue.sync { projMap[id] }
     }
 
     func saveProject(_ project: Project) {
@@ -119,7 +119,7 @@ final class ConversationStore {
             guard let self = self else { return }
             var p = project
             p.updatedAt = Date()
-            self.projects[p.id] = p
+            self.projMap[p.id] = p
             self.writeProjects()
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: self.changeName, object: self)
@@ -132,14 +132,14 @@ final class ConversationStore {
     func deleteProject(id: String) {
         queue.async { [weak self] in
             guard let self = self else { return }
-            self.projects.removeValue(forKey: id)
+            self.projMap.removeValue(forKey: id)
             self.writeProjects()
             // unassign conversations
-            let affected = self.conversations.filter { $0.value.projectId == id }.map { $0.key }
+            let affected = self.convMap.filter { $0.value.projectId == id }.map { $0.key }
             for cid in affected {
-                if var c = self.conversations[cid] {
+                if var c = self.convMap[cid] {
                     c.projectId = nil
-                    self.conversations[cid] = c
+                    self.convMap[cid] = c
                     self.persist(c)
                 }
             }
@@ -161,10 +161,10 @@ final class ConversationStore {
 
     func loadDemoData(_ conversations: [Conversation], _ projects: [Project]) {
         queue.sync {
-            self.conversations = [:]
-            for c in conversations { self.conversations[c.id] = c }
-            self.projects = [:]
-            for p in projects { self.projects[p.id] = p }
+            self.convMap = [:]
+            for c in conversations { self.convMap[c.id] = c }
+            self.projMap = [:]
+            for p in projects { self.projMap[p.id] = p }
         }
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: self.changeName, object: self)
@@ -179,7 +179,7 @@ final class ConversationStore {
         if let data = try? Data(contentsOf: purl) {
             let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
             if let arr = try? dec.decode([Project].self, from: data) {
-                for p in arr { projects[p.id] = p }
+                for p in arr { projMap[p.id] = p }
             }
         }
         // conversations
@@ -190,7 +190,7 @@ final class ConversationStore {
                 if let data = try? Data(contentsOf: f) {
                     let dec = JSONDecoder(); dec.dateDecodingStrategy = .iso8601
                     if let c = try? dec.decode(Conversation.self, from: data) {
-                        conversations[c.id] = c
+                        convMap[c.id] = c
                     }
                 }
             }
@@ -208,7 +208,7 @@ final class ConversationStore {
     private func writeProjects() {
         let url = dir.appendingPathComponent("projects.json")
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = .prettyPrinted
-        let arr = Array(projects.values)
+        let arr = Array(projMap.values)
         if let data = try? enc.encode(arr) {
             try? data.write(to: url)
         }
@@ -217,7 +217,7 @@ final class ConversationStore {
     private func writeIndex() {
         let url = dir.appendingPathComponent("index.json")
         let enc = JSONEncoder(); enc.dateEncodingStrategy = .iso8601; enc.outputFormatting = .prettyPrinted
-        let summaries = Array(conversations.values).map { c in
+        let summaries = Array(convMap.values).map { c in
             Summary(id: c.id, title: c.title, updatedAt: c.updatedAt, isStarred: c.isStarred, projectId: c.projectId, model: c.model, messageCount: c.messages.count)
         }
         if let data = try? enc.encode(summaries) {
