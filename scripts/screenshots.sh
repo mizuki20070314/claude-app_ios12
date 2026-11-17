@@ -10,22 +10,31 @@ WAIT="${WAIT:-5}"
 
 mkdir -p "$OUTDIR"
 
-echo "== runtimes =="; xcrun simctl list runtimes
-# 最新の iOS ランタイム (Xcode 16.4 なら iOS 18.x)
-RUNTIME_ID="$(xcrun simctl list runtimes -j | python3 -c '
+xcrun simctl list runtimes -j > /tmp/runtimes.json
+# 使用中の Xcode の SDK と同じメジャーの iOS ランタイムを優先 (Xcode 16.4 → iOS 18.x)
+SDK_MAJOR="$(xcrun --sdk iphonesimulator --show-sdk-version | cut -d. -f1)"
+RUNTIME_ID="$(python3 - "$SDK_MAJOR" <<'PY'
 import json,sys
-rs=[r for r in json.load(sys.stdin)["runtimes"] if r.get("platform","iOS")=="iOS" and r.get("isAvailable")]
-rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")])
-print(rs[-1]["identifier"] if rs else "")')"
-echo "Runtime: $RUNTIME_ID"
+major=sys.argv[1]
+rs=[r for r in json.load(open("/tmp/runtimes.json"))["runtimes"] if r.get("platform","iOS")=="iOS" and r.get("isAvailable")]
+key=lambda r:[int(x) for x in r["version"].split(".")]
+same=[r for r in rs if r["version"].split(".")[0]==major]
+pool=sorted(same or rs,key=key)
+print(pool[-1]["identifier"] if pool else "")
+PY
+)"
+echo "SDK major: $SDK_MAJOR / Runtime: $RUNTIME_ID"
 [ -z "$RUNTIME_ID" ] && { echo "No iOS runtime" >&2; exit 0; }
 
-pick_type() { # $1 = regex
-  xcrun simctl list devicetypes -j | python3 -c '
+pick_type() { # $1 = regex — ランタイムがサポートするデバイスから選ぶ
+  python3 - "$RUNTIME_ID" "$1" <<'PY'
 import json,sys,re
-pat=re.compile(sys.argv[1])
-ts=[t for t in json.load(sys.stdin)["devicetypes"] if pat.search(t["name"])]
-print(ts[-1]["identifier"] if ts else "")' "$1"
+rid,pat=sys.argv[1],re.compile(sys.argv[2])
+for r in json.load(open("/tmp/runtimes.json"))["runtimes"]:
+    if r["identifier"]==rid:
+        ts=[t for t in r.get("supportedDeviceTypes",[]) if pat.search(t["name"])]
+        print(ts[-1]["identifier"] if ts else "")
+PY
 }
 
 IPHONE_TYPE="$(pick_type '^iPhone SE')"
