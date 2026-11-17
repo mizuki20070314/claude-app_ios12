@@ -392,7 +392,8 @@ final class ChatViewController: UIViewController {
                 self.isStreaming = false
                 self.composerView.isStreaming = false
                 self.streamHandle = nil
-                let cancelled = (error as? AnthropicError) == .cancelled || self.userCancelled
+                var cancelled = self.userCancelled
+                if let e = error as? AnthropicError, case .cancelled = e { cancelled = true }
                 if cancelled {
                     // keep partial text
                     var c = self.conversation!

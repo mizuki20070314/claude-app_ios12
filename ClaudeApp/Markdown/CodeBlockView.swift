@@ -13,7 +13,7 @@ final class CodeBlockView: UIView {
     private var resetTitleWorkItem: DispatchWorkItem?
     private var measuredHeight: CGFloat = 60
 
-    override init(frame: CGRect) {
+    override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         setup()
     }

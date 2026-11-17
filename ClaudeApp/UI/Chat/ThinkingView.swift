@@ -17,7 +17,7 @@ final class ThinkingView: UIView {
         didSet { updateHeader() }
     }
 
-    override init(frame: CGRect) {
+    override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         setup()
     }

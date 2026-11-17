@@ -362,7 +362,7 @@ final class AssistantMessageCell: UITableViewCell {
 final class ArtifactCardView: UIView {
     var onTap: (() -> Void)?
 
-    override init(frame: CGRect) {
+    override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
         addGestureRecognizer(tap)

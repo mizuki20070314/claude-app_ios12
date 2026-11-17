@@ -44,7 +44,7 @@ final class ComposerView: UIView {
         set { textView.text = newValue; updatePlaceholder(); updateSendState() }
     }
 
-    override init(frame: CGRect) {
+    override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         setup()
     }

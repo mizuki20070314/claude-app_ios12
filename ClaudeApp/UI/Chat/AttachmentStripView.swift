@@ -7,7 +7,7 @@ final class AttachmentStripView: UIView {
 
     private var attachments: [Attachment] = []
 
-    override init(frame: CGRect) {
+    override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         setup()
     }

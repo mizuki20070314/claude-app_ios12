@@ -165,9 +165,9 @@ public enum Icons {
         case .globe:
             path.append(UIBezierPath(ovalIn: CGRect(x: 3, y: 3, width: 18, height: 18)))
             path.move(to: CGPoint(x: 12, y: 3))
-            path.addCurve(to: CGPoint(x: 12, y: 21), control1: CGPoint(x: 4, y: 8), control2: CGPoint(x: 4, y: 16))
+            path.addCurve(to: CGPoint(x: 12, y: 21), controlPoint1: CGPoint(x: 4, y: 8), controlPoint2: CGPoint(x: 4, y: 16))
             path.move(to: CGPoint(x: 12, y: 3))
-            path.addCurve(to: CGPoint(x: 12, y: 21), control1: CGPoint(x: 20, y: 8), control2: CGPoint(x: 20, y: 16))
+            path.addCurve(to: CGPoint(x: 12, y: 21), controlPoint1: CGPoint(x: 20, y: 8), controlPoint2: CGPoint(x: 20, y: 16))
             path.move(to: CGPoint(x: 3, y: 12)); path.addLine(to: CGPoint(x: 21, y: 12))
         case .thinking:
             path.append(UIBezierPath(ovalIn: CGRect(x: 3, y: 3, width: 18, height: 18)))
@@ -197,8 +197,8 @@ public enum Icons {
             path.move(to: CGPoint(x: 20, y: 12)); path.addLine(to: CGPoint(x: 20, y: 15))
         case .moon:
             path.move(to: CGPoint(x: 18, y: 4))
-            path.addCurve(to: CGPoint(x: 18, y: 20), control1: CGPoint(x: 8, y: 8), control2: CGPoint(x: 8, y: 16))
-            path.addCurve(to: CGPoint(x: 18, y: 4), control1: CGPoint(x: 14, y: 6), control2: CGPoint(x: 14, y: 18))
+            path.addCurve(to: CGPoint(x: 18, y: 20), controlPoint1: CGPoint(x: 8, y: 8), controlPoint2: CGPoint(x: 8, y: 16))
+            path.addCurve(to: CGPoint(x: 18, y: 4), controlPoint1: CGPoint(x: 14, y: 6), controlPoint2: CGPoint(x: 14, y: 18))
             path.close()
             mode = .fill
         case .sun:
@@ -239,7 +239,7 @@ public final class SparkView: UIView {
         didSet { setNeedsDisplay() }
     }
 
-    public override init(frame: CGRect) {
+    public override init(frame: CGRect = .zero) {
         super.init(frame: frame)
         backgroundColor = .clear
         isOpaque = false

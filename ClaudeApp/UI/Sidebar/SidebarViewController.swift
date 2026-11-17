@@ -132,7 +132,8 @@ final class SidebarViewController: UIViewController {
             avatar.widthAnchor.constraint(equalToConstant: 32),
             avatar.heightAnchor.constraint(equalToConstant: 32),
 
-            initialLabel.centerInSuperview(),
+            initialLabel.centerXAnchor.constraint(equalTo: avatar.centerXAnchor),
+            initialLabel.centerYAnchor.constraint(equalTo: avatar.centerYAnchor),
 
             nameLabel.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 10),
             nameLabel.centerYAnchor.constraint(equalTo: userRow.centerYAnchor),
@@ -282,11 +283,7 @@ extension SidebarViewController: UITableViewDataSource, UITableViewDelegate {
         // not used
     }
 
-    func tableView(_ tableView: UITableView, contextMenuConfigurationForRowAt indexPath: IndexPath, point: CGPoint) -> UIContextMenuConfiguration? {
-        return nil
-    }
-
-    // Long press
+    // Long press (context menu removed for iOS 12 compatibility)
     func tableView(_ tableView: UITableView, shouldShowMenuForRowAt indexPath: IndexPath) -> Bool { return true }
 
     // Use gesture for long press
