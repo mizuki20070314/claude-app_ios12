@@ -87,6 +87,7 @@ final class AssistantMessageCell: UITableViewCell {
     private let container = UIView()
     let sparkView = SparkView()
     let thinkingView = ThinkingView()
+    private var sparkHeightConstraint: NSLayoutConstraint?
     let markdownView: MarkdownContentView
     private let actionStack = UIStackView()
     private let copyButton = UIButton(type: .system)
@@ -185,7 +186,6 @@ final class AssistantMessageCell: UITableViewCell {
             sparkView.topAnchor.constraint(equalTo: container.topAnchor),
             sparkView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             sparkView.widthAnchor.constraint(equalToConstant: 24),
-            sparkView.heightAnchor.constraint(equalToConstant: 24),
 
             thinkingView.topAnchor.constraint(equalTo: sparkView.bottomAnchor, constant: 4),
             thinkingView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -215,6 +215,10 @@ final class AssistantMessageCell: UITableViewCell {
             retryErrorButton.centerYAnchor.constraint(equalTo: errorLabel.centerYAnchor),
         ])
 
+        let sh = sparkView.heightAnchor.constraint(equalToConstant: 24)
+        sh.isActive = true
+        sparkHeightConstraint = sh
+
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: Theme.didChange, object: nil)
     }
 
@@ -232,6 +236,7 @@ final class AssistantMessageCell: UITableViewCell {
         }
         thinkingView.isStreaming = isStreaming
         sparkView.isHidden = !isStreaming
+        sparkHeightConstraint?.constant = isStreaming ? 24 : 0
         if isStreaming { sparkView.startPulsing(); sparkView.color = Theme.current.accent }
         else { sparkView.stopPulsing() }
 
@@ -260,6 +265,7 @@ final class AssistantMessageCell: UITableViewCell {
 
     func setStreaming(_ streaming: Bool) {
         sparkView.isHidden = !streaming
+        sparkHeightConstraint?.constant = streaming ? 24 : 0
         if streaming { sparkView.startPulsing() } else { sparkView.stopPulsing() }
         actionStack.isHidden = streaming
         thinkingView.isStreaming = streaming

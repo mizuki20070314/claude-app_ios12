@@ -109,19 +109,17 @@ public enum Icons {
             path.addArc(withCenter: CGPoint(x: 12, y: 12), radius: 8, startAngle: -.pi / 2, endAngle: .pi, clockwise: true)
             path.move(to: CGPoint(x: 4, y: 12)); path.addLine(to: CGPoint(x: 4, y: 16)); path.addLine(to: CGPoint(x: 8, y: 16))
         case .thumbsUp, .thumbsDown:
-            // cuff: rounded rectangle on the left
-            path.append(UIBezierPath(roundedRect: CGRect(x: 3, y: 10, width: 4, height: 11), cornerRadius: 1.5))
-            // hand shape
-            path.move(to: CGPoint(x: 7, y: 10))
-            path.addQuadCurve(to: CGPoint(x: 12, y: 3), controlPoint: CGPoint(x: 7, y: 3))
-            path.addQuadCurve(to: CGPoint(x: 19, y: 10), controlPoint: CGPoint(x: 17, y: 3))
-            path.addLine(to: CGPoint(x: 19, y: 19))
-            path.addLine(to: CGPoint(x: 17, y: 21))
-            path.addLine(to: CGPoint(x: 7, y: 21))
+            // palm: rounded square
+            path.append(UIBezierPath(roundedRect: CGRect(x: 8, y: 10, width: 12, height: 11), cornerRadius: 3))
+            // thumb rising from palm top-left, rounded top
+            let thumb = UIBezierPath(roundedRect: CGRect(x: 8, y: 3, width: 5, height: 7), byRoundingCorners: [.topLeft, .topRight], cornerRadii: CGSize(width: 2, height: 2))
+            path.append(thumb)
+            // cuff at left
+            path.append(UIBezierPath(roundedRect: CGRect(x: 3, y: 10, width: 3, height: 11), cornerRadius: 1.5))
             if name == .thumbsDown {
-                var t = CGAffineTransform(translationX: 12, y: 12)
-                t = t.rotated(by: .pi)
-                t = t.translatedBy(x: -12, y: -12)
+                var t = CGAffineTransform(translationX: 0, y: 12)
+                t = t.scaledBy(x: 1, y: -1)
+                t = t.translatedBy(x: 0, y: -12)
                 path.apply(t)
             }
             mode = .stroke

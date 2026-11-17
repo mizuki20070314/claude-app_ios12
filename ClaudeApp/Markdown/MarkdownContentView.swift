@@ -83,6 +83,7 @@ final class MarkdownContentView: UIView {
             tv.isScrollEnabled = false
             tv.isEditable = false
             tv.isSelectable = true
+            tv.contentInset = .zero
             tv.textContainerInset = .zero
             tv.textContainer.lineFragmentPadding = 0
             tv.dataDetectorTypes = .link

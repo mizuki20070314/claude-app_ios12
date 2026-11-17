@@ -132,10 +132,11 @@ final class MarkdownParser {
                     let r = lines[i]
                     let t = r.trimmingCharacters(in: .whitespaces)
                     if t.isEmpty {
-                        // End list only when blank line is followed by a non-list line.
+                        // End list when blank line is followed by a line indented < 4 spaces
+                        // (or a non-list line). A line indented >= 4 spaces may continue.
                         var j = i
                         while j < n && lines[j].trimmingCharacters(in: .whitespaces).isEmpty { j += 1 }
-                        if j < n && parseBulletRaw(lines[j]) != nil {
+                        if j < n && leadingSpaces(lines[j]) >= 4 && parseBulletRaw(lines[j]) != nil {
                             i = j
                             continue
                         }
@@ -162,7 +163,7 @@ final class MarkdownParser {
                     if t.isEmpty {
                         var j = i
                         while j < n && lines[j].trimmingCharacters(in: .whitespaces).isEmpty { j += 1 }
-                        if j < n && parseOrderedRaw(lines[j]) != nil {
+                        if j < n && leadingSpaces(lines[j]) >= 4 && parseOrderedRaw(lines[j]) != nil {
                             i = j
                             continue
                         }
@@ -179,8 +180,14 @@ final class MarkdownParser {
                 continue
             }
 
-            // Paragraph
-            paragraphAcc.append(raw)
+            // Paragraph: strip up to 3 leading spaces from the line.
+            var paraLine = raw
+            var stripped = 0
+            while stripped < 3 && paraLine.hasPrefix(" ") {
+                paraLine.removeFirst()
+                stripped += 1
+            }
+            paragraphAcc.append(paraLine)
             i += 1
         }
 
@@ -214,6 +221,16 @@ final class MarkdownParser {
             if "|-:".contains(ch) == false { return false }
         }
         return stripped.contains("-")
+    }
+
+    private static func leadingSpaces(_ raw: String) -> Int {
+        var spaces = 0
+        for ch in raw {
+            if ch == " " { spaces += 1 }
+            else if ch == "\t" { spaces += 4 }
+            else { break }
+        }
+        return spaces
     }
 
     private static func indentLevel(_ raw: String) -> Int {
