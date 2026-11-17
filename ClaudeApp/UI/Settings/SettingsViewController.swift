@@ -113,7 +113,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
         case 0: return 1 // profile
-        case 1: return 1 // account
+        case 1: return 5 // account/auth
         case 2: return 1 // appearance
         case 3: return 4 // model
         case 4: return 1 // style
@@ -167,15 +167,52 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             return cell
 
         case 1:
-            let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            cell.backgroundColor = t.surface
-            cell.textLabel?.text = L("settings.account.apikey", "Settings")
-            cell.textLabel?.textColor = t.textPrimary
-            let key = SettingsStore.shared.apiKey
-            cell.detailTextLabel?.text = maskKey(key)
-            cell.detailTextLabel?.textColor = t.textSecondary
-            cell.accessoryType = .disclosureIndicator
-            return cell
+            switch indexPath.row {
+            case 0:
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+                cell.backgroundColor = t.surface
+                cell.textLabel?.text = L("settings.account.authMode", "Settings")
+                cell.textLabel?.textColor = t.textPrimary
+                cell.detailTextLabel?.text = SettingsStore.shared.authMode == "claudeAccount" ? L("settings.account.authMode.account", "Settings") : L("settings.account.authMode.apiKey", "Settings")
+                cell.detailTextLabel?.textColor = t.textSecondary
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            case 1:
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+                cell.backgroundColor = t.surface
+                cell.textLabel?.text = L("settings.account.status", "Settings")
+                cell.textLabel?.textColor = t.textPrimary
+                if SettingsStore.shared.authMode == "claudeAccount" && ClaudeAccountAuth.shared.isLoggedIn {
+                    cell.detailTextLabel?.text = ClaudeAccountAuth.shared.accountDisplayName ?? L("settings.account.loggedIn", "Settings")
+                } else {
+                    cell.detailTextLabel?.text = L("settings.account.loggedOut", "Settings")
+                }
+                cell.detailTextLabel?.textColor = t.textSecondary
+                cell.selectionStyle = .none
+                return cell
+            case 2:
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                cell.backgroundColor = t.surface
+                cell.textLabel?.text = L("settings.account.loginClaude", "Settings")
+                cell.textLabel?.textColor = t.accent
+                return cell
+            case 3:
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                cell.backgroundColor = t.surface
+                cell.textLabel?.text = L("settings.account.logout", "Settings")
+                cell.textLabel?.textColor = t.destructive
+                return cell
+            default:
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+                cell.backgroundColor = t.surface
+                cell.textLabel?.text = L("settings.account.apikey", "Settings")
+                cell.textLabel?.textColor = t.textPrimary
+                let key = SettingsStore.shared.apiKey
+                cell.detailTextLabel?.text = maskKey(key)
+                cell.detailTextLabel?.textColor = t.textSecondary
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
 
         case 2:
             let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
@@ -348,7 +385,37 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case 0:
             editName()
         case 1:
-            push(ApiKeyViewController())
+            switch indexPath.row {
+            case 1:
+                break
+            case 0:
+                // Login method picker
+                let opts: [(String,String?)] = [
+                    (L("settings.account.authMode.account", "Settings"), nil),
+                    (L("settings.account.authMode.apiKey", "Settings"), nil)
+                ]
+                let raws = ["claudeAccount", "apiKey"]
+                let idx = raws.firstIndex(of: SettingsStore.shared.authMode) ?? 1
+                let vc = OptionListViewController(title: L("settings.account.authMode", "Settings"), options: opts, selectedIndex: idx) { i in
+                    SettingsStore.shared.authMode = raws[i]
+                }
+                pushOrPresent(vc)
+            case 2:
+                ClaudeAccountAuth.shared.startLogin(from: self) { [weak self] success, message in
+                    guard let self = self else { return }
+                    if !success {
+                        let alert = UIAlertController(title: nil, message: message ?? "ログインに失敗しました。", preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: "OK", style: .default))
+                        self.present(alert, animated: true)
+                    }
+                    self.tableView.reloadData()
+                }
+            case 3:
+                ClaudeAccountAuth.shared.logout()
+                self.tableView.reloadData()
+            default:
+                push(ApiKeyViewController())
+            }
         case 2:
             showThemePicker()
         case 3:

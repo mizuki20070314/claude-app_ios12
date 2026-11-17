@@ -15,6 +15,12 @@ final class OnboardingViewController: UIViewController {
     private let welcomeSubtitleLabel = UILabel()
     private let startButton = UIButton(type: .system)
 
+    // Choice (account vs API key)
+    private let choiceTitleLabel = UILabel()
+    private let choiceSubtitleLabel = UILabel()
+    private let accountLoginButton = UIButton(type: .system)
+    private let useApiKeyButton = UIButton(type: .system)
+    private let accountLoginActivityIndicator = UIActivityIndicatorView(style: .gray)
     // API key
     private let apiKeyTitleLabel = UILabel()
     private let apiKeyExplanationLabel = UILabel()
@@ -79,9 +85,10 @@ final class OnboardingViewController: UIViewController {
         ])
 
         let welcome = buildWelcomePage()
+        let choice = buildChoicePage()
         let apiKey = buildApiKeyPage()
         let name = buildNamePage()
-        pageViews = [welcome, apiKey, name]
+        pageViews = [welcome, choice, apiKey, name]
 
         for (idx, p) in pageViews.enumerated() {
             p.translatesAutoresizingMaskIntoConstraints = false
@@ -128,6 +135,47 @@ final class OnboardingViewController: UIViewController {
         startButton.addTarget(self, action: #selector(startTapped), for: .touchUpInside)
         startButton.translatesAutoresizingMaskIntoConstraints = false
         welcome.addSubview(startButton)
+
+        // Login choice page
+        choiceTitleLabel.text = L("onboarding.choice.title", "Onboarding")
+        choiceTitleLabel.font = Fonts.serif(size: 24, weight: .semibold)
+        choiceTitleLabel.textAlignment = .center
+        choiceTitleLabel.numberOfLines = 0
+        choiceTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        choice.addSubview(choiceTitleLabel)
+
+        choiceSubtitleLabel.text = L("onboarding.choice.subtitle", "Onboarding")
+        choiceSubtitleLabel.font = Fonts.sans(size: 14)
+        choiceSubtitleLabel.textAlignment = .center
+        choiceSubtitleLabel.numberOfLines = 0
+        choiceSubtitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        choice.addSubview(choiceSubtitleLabel)
+
+        accountLoginButton.setTitle(L("onboarding.choice.accountLogin", "Onboarding"), for: .normal)
+        accountLoginButton.titleLabel?.font = Fonts.sans(size: 17, weight: .semibold)
+        accountLoginButton.layer.cornerRadius = 12
+        accountLoginButton.clipsToBounds = true
+        accountLoginButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        accountLoginButton.addTarget(self, action: #selector(accountLoginTapped), for: .touchUpInside)
+        accountLoginButton.translatesAutoresizingMaskIntoConstraints = false
+        choice.addSubview(accountLoginButton)
+
+        useApiKeyButton.setTitle(L("onboarding.choice.useApiKey", "Onboarding"), for: .normal)
+        useApiKeyButton.titleLabel?.font = Fonts.sans(size: 17, weight: .semibold)
+        useApiKeyButton.layer.cornerRadius = 12
+        useApiKeyButton.clipsToBounds = true
+        useApiKeyButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
+        useApiKeyButton.addTarget(self, action: #selector(useApiKeyTapped), for: .touchUpInside)
+        useApiKeyButton.translatesAutoresizingMaskIntoConstraints = false
+        choice.addSubview(useApiKeyButton)
+
+        accountLoginActivityIndicator.hidesWhenStopped = true
+        accountLoginActivityIndicator.translatesAutoresizingMaskIntoConstraints = false
+        accountLoginButton.addSubview(accountLoginActivityIndicator)
+        NSLayoutConstraint.activate([
+            accountLoginActivityIndicator.centerXAnchor.constraint(equalTo: accountLoginButton.centerXAnchor),
+            accountLoginActivityIndicator.centerYAnchor.constraint(equalTo: accountLoginButton.centerYAnchor)
+        ])
 
         // API key page
         apiKeyTitleLabel.text = L("onboarding.apikey.title", "Onboarding")
@@ -222,6 +270,7 @@ final class OnboardingViewController: UIViewController {
 
         // Layout each page content with max width 480 centered.
         layoutWelcome(welcome)
+        layoutChoice(choice)
         layoutApiKey(apiKey)
         layoutName(name)
     }
@@ -236,6 +285,7 @@ final class OnboardingViewController: UIViewController {
     }
 
     private func buildWelcomePage() -> UIView { let v = UIView(); return v }
+    private func buildChoicePage() -> UIView { let v = UIView(); return v }
     private func buildApiKeyPage() -> UIView { let v = UIView(); return v }
     private func buildNamePage() -> UIView { let v = UIView(); return v }
 
@@ -270,6 +320,38 @@ final class OnboardingViewController: UIViewController {
             startButton.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             startButton.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             startButton.bottomAnchor.constraint(equalTo: content.bottomAnchor)
+        ])
+    }
+
+    private func layoutChoice(_ page: UIView) {
+        let content = UIView()
+        content.translatesAutoresizingMaskIntoConstraints = false
+        page.addSubview(content)
+        NSLayoutConstraint.activate([
+            content.centerXAnchor.constraint(equalTo: page.centerXAnchor),
+            content.centerYAnchor.constraint(equalTo: page.centerYAnchor),
+            content.widthAnchor.constraint(lessThanOrEqualToConstant: 480),
+            content.leadingAnchor.constraint(greaterThanOrEqualTo: page.leadingAnchor, constant: 24),
+            content.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor, constant: -24)
+        ])
+        [choiceTitleLabel, choiceSubtitleLabel, accountLoginButton, useApiKeyButton].forEach { $0.removeFromSuperview(); content.addSubview($0) }
+        NSLayoutConstraint.activate([
+            choiceTitleLabel.topAnchor.constraint(equalTo: content.topAnchor),
+            choiceTitleLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            choiceTitleLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+
+            choiceSubtitleLabel.topAnchor.constraint(equalTo: choiceTitleLabel.bottomAnchor, constant: 12),
+            choiceSubtitleLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            choiceSubtitleLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+
+            accountLoginButton.topAnchor.constraint(equalTo: choiceSubtitleLabel.bottomAnchor, constant: 32),
+            accountLoginButton.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            accountLoginButton.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+
+            useApiKeyButton.topAnchor.constraint(equalTo: accountLoginButton.bottomAnchor, constant: 12),
+            useApiKeyButton.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            useApiKeyButton.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            useApiKeyButton.bottomAnchor.constraint(equalTo: content.bottomAnchor)
         ])
     }
 
@@ -353,6 +435,15 @@ final class OnboardingViewController: UIViewController {
         welcomeTitleLabel.textColor = t.textPrimary
         welcomeSubtitleLabel.textColor = t.textSecondary
         stylePrimaryButton(startButton, theme: t)
+
+        choiceTitleLabel.textColor = t.textPrimary
+        choiceSubtitleLabel.textColor = t.textSecondary
+        stylePrimaryButton(accountLoginButton, theme: t)
+        styleSecondaryButton(useApiKeyButton, theme: t)
+        useApiKeyButton.backgroundColor = t.surface
+        useApiKeyButton.layer.borderWidth = 1
+        useApiKeyButton.layer.borderColor = t.border.cgColor
+        accountLoginActivityIndicator.style = t.isDark ? .white : .gray
 
         apiKeyTitleLabel.textColor = t.textPrimary
         apiKeyExplanationLabel.textColor = t.textSecondary
@@ -441,7 +532,7 @@ final class OnboardingViewController: UIViewController {
             self.setValidating(false)
             switch result {
             case .success:
-                self.showPage(2, animated: true)
+                self.showPage(3, animated: true)
             case .failure(let err):
                 SettingsStore.shared.apiKey = self.previousApiKey
                 self.apiKeyErrorLabel.text = (err as? LocalizedError)?.errorDescription ?? err.localizedDescription
@@ -461,6 +552,37 @@ final class OnboardingViewController: UIViewController {
         }
     }
 
+    @objc private func useApiKeyTapped() {
+        showPage(2, animated: true)
+    }
+
+    @objc private func accountLoginTapped() {
+        setAccountValidating(true)
+        ClaudeAccountAuth.shared.startLogin(from: self) { [weak self] success, message in
+            guard let self = self else { return }
+            self.setAccountValidating(false)
+            if success {
+                // validate() already sets authMode = claudeAccount when both session + 200.
+                AppRouter.shared.finishOnboarding()
+            } else {
+                let alert = UIAlertController(title: nil, message: message ?? "ログインに失敗しました。", preferredStyle: .alert)
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                self.present(alert, animated: true)
+            }
+        }
+    }
+
+    private func setAccountValidating(_ validating: Bool) {
+        accountLoginButton.isEnabled = !validating
+        if validating {
+            accountLoginButton.setTitle("", for: .normal)
+            accountLoginActivityIndicator.startAnimating()
+        } else {
+            accountLoginButton.setTitle(L("onboarding.choice.accountLogin", "Onboarding"), for: .normal)
+            accountLoginActivityIndicator.stopAnimating()
+        }
+    }
+
     @objc private func doneTapped() {
         SettingsStore.shared.userName = nameTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         AppRouter.shared.finishOnboarding()
@@ -477,9 +599,9 @@ final class OnboardingViewController: UIViewController {
         } else {
             scrollView.setContentOffset(offset, animated: false)
         }
-        if index == 1 {
+        if index == 2 {
             apiKeyTextField.becomeFirstResponder()
-        } else if index == 2 {
+        } else if index == 3 {
             nameTextField.becomeFirstResponder()
         }
     }

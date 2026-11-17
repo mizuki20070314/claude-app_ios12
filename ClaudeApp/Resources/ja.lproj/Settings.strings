@@ -57,3 +57,11 @@
 
 "settings.signout" = "サインアウト";
 "settings.signout.confirm" = "サインアウトしますか？APIキーが削除されます。";
+"settings.account.authMode" = "ログイン方法";
+"settings.account.authMode.account" = "Claude.ai アカウント";
+"settings.account.authMode.apiKey" = "API キー";
+"settings.account.status" = "アカウント状態";
+"settings.account.loggedIn" = "ログイン済み";
+"settings.account.loggedOut" = "未ログイン";
+"settings.account.loginClaude" = "claude.ai でログイン";
+"settings.account.logout" = "ログアウト";

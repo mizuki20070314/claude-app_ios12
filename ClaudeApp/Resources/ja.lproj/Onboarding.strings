@@ -12,3 +12,7 @@
 "onboarding.name.title" = "どのようにお呼びすればよいですか？";
 "onboarding.name.placeholder" = "名前 (任意)";
 "onboarding.name.done" = "完了";
+"onboarding.choice.title" = "ログイン";
+"onboarding.choice.subtitle" = "Claude.ai アカウントまたは API キーでログインします。";
+"onboarding.choice.accountLogin" = "claude.ai アカウントでログイン";
+"onboarding.choice.useApiKey" = "API キーを使う";

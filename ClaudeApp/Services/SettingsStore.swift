@@ -75,4 +75,14 @@ final class SettingsStore {
             postChange()
         }
     }
+
+    var authMode: String {
+        get { defaults.string(forKey: "authMode") ?? "apiKey" }
+        set { defaults.set(newValue, forKey: "authMode"); postChange() }
+    }
+
+    var accountEmail: String {
+        get { defaults.string(forKey: "accountEmail") ?? "" }
+        set { defaults.set(newValue, forKey: "accountEmail"); postChange() }
+    }
 }

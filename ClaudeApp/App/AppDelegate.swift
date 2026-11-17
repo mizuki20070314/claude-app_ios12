@@ -16,6 +16,14 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         return true
     }
 
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        if url.scheme == "claudeios12" {
+            NotificationCenter.default.post(name: Notification.Name("ClaudeAccountAuth.callback"), object: url)
+            return true
+        }
+        return false
+    }
+
     @objc private func themeDidChange() {
         window?.tintColor = Theme.current.textPrimary
         UISwitch.appearance().onTintColor = Theme.current.accent

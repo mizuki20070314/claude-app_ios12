@@ -26,7 +26,8 @@ iOS 12 (iPod touch 第6世代 / iPad mini 2 など) 向けの **非公式** Clau
 
 ## Android 版との違い
 
-- claude.ai アカウントではなく **Anthropic API キー** (`console.anthropic.com`) を使用。API 料金が発生します。
+- チャット送信は **Anthropic API キー** (`console.anthropic.com`) を使用。API 料金が発生します。
+- claude.ai アカウントログイン UI も備えますが、チャット API は未対応のため API キーが必要です。
 - 会話は端末内 (Application Support の JSON) に保存されます。
 - 音声モード / Web 検索 / Claude Code 連携などは未対応です。
 
@@ -61,7 +62,7 @@ xcodebuild -project ClaudeApp.xcodeproj -scheme ClaudeApp \
 
 - push ごとに `macos-15` / Xcode 16.4 でビルドします。
 - iOS 18 シミュレータ (iPhone SE 第3世代, iPad mini) で `-screenshot <screen>` 起動引数を使いスクリーンショットを撮影します。
-- 画面一覧: `onboarding`, `home`, `chat`, `sidebar`, `models`, `settings`, `projects`, `project_detail`, `search`, `artifact`, `dark_chat`, `dark_home`
+- 画面一覧: `onboarding`, `account_login`, `home`, `chat`, `sidebar`, `models`, `settings`, `projects`, `project_detail`, `search`, `artifact`, `dark_chat`, `dark_home`
 - 注意: GitHub Actions には iOS 12 シミュレータがないため、iOS 12 実機での動作確認は別途必要です。
 
 ## ディレクトリ構成

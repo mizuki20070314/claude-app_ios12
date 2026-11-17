@@ -48,6 +48,19 @@
     <string>写真を撮影して添付するためにカメラへのアクセスが必要です。</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>音声入力のためにマイクへのアクセスが必要です。</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.mizuki.claudeios12.auth</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>claudeios12</string>
+            </array>
+        </dict>
+    </array>
+    <key>LSApplicationQueriesSchemes</key>
+    <array/>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
 </dict>

@@ -12,3 +12,7 @@
 "onboarding.name.title" = "What should we call you?";
 "onboarding.name.placeholder" = "Name (optional)";
 "onboarding.name.done" = "Done";
+"onboarding.choice.title" = "Sign in";
+"onboarding.choice.subtitle" = "Sign in with your Claude.ai account or an API key.";
+"onboarding.choice.accountLogin" = "Sign in with claude.ai account";
+"onboarding.choice.useApiKey" = "Use an API key";

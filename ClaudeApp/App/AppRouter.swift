@@ -50,7 +50,9 @@ final class AppRouter {
         // Determine initial content
         if screen == "onboarding" {
             nav.setViewControllers([OnboardingViewController()], animated: false)
-        } else if screen == nil && SettingsStore.shared.apiKey.isEmpty {
+        } else if screen == "account_login" {
+            nav.setViewControllers([AccountLoginViewController()], animated: false)
+        } else if screen == nil && !self.isAuthenticatedForOnboarding() {
             nav.setViewControllers([OnboardingViewController()], animated: false)
         } else {
             nav.setViewControllers([ChatViewController(conversationId: nil, projectId: nil)], animated: false)
@@ -66,7 +68,7 @@ final class AppRouter {
     private func handleScreenshot(screen: String?) {
         guard let screen = screen else { return }
         switch screen {
-        case "onboarding":
+        case "onboarding", "account_login":
             break
         case "home", "dark_home":
             mainNav?.setViewControllers([ChatViewController(conversationId: nil, projectId: nil)], animated: false)
@@ -159,8 +161,17 @@ final class AppRouter {
     }
 
     func signOut() {
+        ClaudeAccountAuth.shared.logout()
         SettingsStore.shared.apiKey = ""
+        SettingsStore.shared.authMode = "apiKey"
         mainNav?.setViewControllers([OnboardingViewController()], animated: true)
+    }
+
+    private func isAuthenticatedForOnboarding() -> Bool {
+        if SettingsStore.shared.authMode == "claudeAccount" && ClaudeAccountAuth.shared.isLoggedIn {
+            return true
+        }
+        return !SettingsStore.shared.apiKey.isEmpty
     }
 
     var topViewController: UIViewController? {

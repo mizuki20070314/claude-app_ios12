@@ -57,3 +57,11 @@
 
 "settings.signout" = "Sign out";
 "settings.signout.confirm" = "Sign out? Your API key will be removed.";
+"settings.account.authMode" = "Sign-in method";
+"settings.account.authMode.account" = "Claude.ai account";
+"settings.account.authMode.apiKey" = "API key";
+"settings.account.status" = "Account status";
+"settings.account.loggedIn" = "Signed in";
+"settings.account.loggedOut" = "Signed out";
+"settings.account.loginClaude" = "Sign in with claude.ai";
+"settings.account.logout" = "Sign out";
