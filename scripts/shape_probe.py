@@ -22,7 +22,7 @@ ORG_HINT = os.environ.get("CLAUDE_LAST_ACTIVE_ORG", "").strip()
 PATHS = [p.strip() for p in re.split(r"[\n|]", os.environ.get("PROBE_PATHS", "")) if p.strip()]
 ENUM_KEYS = {"kind", "type", "sender", "role", "status", "worker_status", "section", "surface", "stop_reason",
              "rendering_mode", "input_mode", "source", "state", "event", "subtype", "mode", "environment_kind",
-             "session_status", "connection_status", "platform", "object", "has_more", "is_live", "needs_input",
+             "session_status", "connection_status", "event_type", "environment_kind", "status_bucket", "origin", "stop_reason", "subtype", "platform", "object", "has_more", "is_live", "needs_input",
              "unread", "is_starred", "is_temporary", "truncated", "name_kind", "category"}
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 captured = {}
@@ -53,6 +53,18 @@ def shape(obj, key=None, depth=0, max_depth=6):
     if isinstance(obj, list):
         if not obj:
             return ""
+        # イベント列: (event_type, payload.type) ごとに最初の1件の構造を表示
+        if all(isinstance(x, dict) and "payload" in x for x in obj):
+            groups = {}
+            for x in obj:
+                p = x.get("payload") if isinstance(x.get("payload"), dict) else {}
+                g = (str(x.get("event_type")), str(p.get("type")), str(p.get("subtype")))
+                groups.setdefault(g, []).append(x)
+            out = [f"{pad}(event groups: {[(g, len(v)) for g, v in groups.items()]})"]
+            for g, items in list(groups.items())[:12]:
+                out.append(f"{pad}--- group {g} ---")
+                out.append(shape(items[0], key, depth + 1, max_depth + 3))
+            return "\n".join(l for l in out if l)
         out = [f"{pad}[0]:", shape(obj[0], key, depth + 1, max_depth)]
         kinds = sorted({str(x.get(k2)) for x in obj if isinstance(x, dict) for k2 in ("kind", "type") if k2 in x})
         if kinds:
