@@ -98,6 +98,11 @@ def request(method, path, org):
     hdr = {"Cookie": f"sessionKey={SESSION}" + (f"; lastActiveOrg={org}" if org else ""),
            "Accept": "application/json", "Content-Type": "application/json", "User-Agent": UA,
            "Origin": "https://claude.ai", "Referer": "https://claude.ai/"}
+    # PROBE_HEADERS: "Name: value;;Name2: value2" ({org} 置換可)
+    for item in os.environ.get("PROBE_HEADERS", "").split(";;"):
+        if ":" in item:
+            name, value = item.split(":", 1)
+            hdr[name.strip()] = value.strip().replace("{org}", org or "")
     url = path if path.startswith("http") else BASE + path
     req = urllib.request.Request(url, method=method, headers=hdr)
     try:

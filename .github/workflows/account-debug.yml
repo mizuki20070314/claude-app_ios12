@@ -22,6 +22,10 @@ on:
         description: "構造だけ表示する API ('|' 区切り, 例 'GET /organizations/{org}/recents')"
         type: string
         default: ""
+      probe_headers:
+        description: "構造 probe の追加ヘッダ (';;' 区切り, {org} 置換可)"
+        type: string
+        default: ""
       app_screen:
         description: "アプリテストの画面名"
         type: string
@@ -49,6 +53,8 @@ jobs:
           CLAUDE_SESSION_KEY: ${{ secrets.CLAUDE_SESSION_KEY }}
           CLAUDE_LAST_ACTIVE_ORG: ${{ secrets.CLAUDE_LAST_ACTIVE_ORG }}
           PROBE_PATHS: ${{ inputs.probe_paths }}
+          PROBE_HEADERS: ${{ inputs.probe_headers }}
+          CAPTURE_SESSION_KEY: id
         run: python3 -I scripts/shape_probe.py
 
   app:
