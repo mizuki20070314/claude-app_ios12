@@ -20,6 +20,9 @@ targets:
       SWIFT_VERSION: "5.0"
       TARGETED_DEVICE_FAMILY: "1,2"
       CODE_SIGNING_ALLOWED: "NO"
+      # シミュレータは ad-hoc 署名 (未署名だと Keychain が errSecMissingEntitlement で使えない)
+      "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]": "YES"
+      "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": "-"
       ENABLE_BITCODE: "NO"
       ARCHS: "$(ARCHS_STANDARD)"
       ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

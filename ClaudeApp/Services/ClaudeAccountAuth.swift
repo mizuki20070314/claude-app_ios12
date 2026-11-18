@@ -35,9 +35,33 @@ final class ClaudeAccountAuth: NSObject {
     #if DEBUG
     static func applyDebugSessionFromEnvironment() {
         let env = ProcessInfo.processInfo.environment
+        let envSessionPresent = (env["CLAUDE_DEBUG_SESSION_KEY"]?.isEmpty == false)
+        let envOrgPresent = (env["CLAUDE_DEBUG_LAST_ACTIVE_ORG"]?.isEmpty == false)
         if let key = env["CLAUDE_DEBUG_SESSION_KEY"], !key.isEmpty {
-            ClaudeAccountAuth.shared.storeSession(sessionKey: key, lastActiveOrg: env["CLAUDE_DEBUG_LAST_ACTIVE_ORG"])
+            // Store session key first so lastStatus reflects the session-key write.
+            ClaudeAccountAuth.shared.storeSession(sessionKey: key, lastActiveOrg: nil)
+            let keychainSetStatus = KeychainStore.shared.lastStatus
+            if let org = env["CLAUDE_DEBUG_LAST_ACTIVE_ORG"], !org.isEmpty {
+                ClaudeAccountAuth.shared.storeLastActiveOrg(org)
+            }
             SettingsStore.shared.authMode = "claudeAccount"
+            let readBackOk = ClaudeAccountAuth.shared.sessionKey != nil
+            let authMode = SettingsStore.shared.authMode
+            let isLoggedIn = ClaudeAccountAuth.shared.isLoggedIn
+            let dict: [String: Any] = [
+                "env_session_present": envSessionPresent,
+                "env_org_present": envOrgPresent,
+                "keychain_set_status": Int(keychainSetStatus),
+                "read_back_ok": readBackOk,
+                "auth_mode": authMode,
+                "is_logged_in": isLoggedIn
+            ]
+            if let data = try? JSONSerialization.data(withJSONObject: dict, options: []) {
+                if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                    let url = dir.appendingPathComponent("account_live_diag.json")
+                    try? data.write(to: url)
+                }
+            }
         }
     }
     #endif

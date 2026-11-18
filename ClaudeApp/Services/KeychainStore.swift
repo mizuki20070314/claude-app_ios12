@@ -5,6 +5,8 @@ final class KeychainStore {
     static let shared = KeychainStore()
     let service: String = "com.mizuki.claudeios12"
 
+    private(set) var lastStatus: OSStatus = errSecSuccess
+
     private init() {}
 
     func get(_ key: String) -> String? {
@@ -17,6 +19,7 @@ final class KeychainStore {
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
+        lastStatus = status
         guard status == errSecSuccess, let data = result as? Data else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -38,6 +41,7 @@ final class KeychainStore {
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
         ]
         let status = SecItemAdd(addQuery as CFDictionary, nil)
+        lastStatus = status
         return status == errSecSuccess
     }
 
@@ -48,6 +52,7 @@ final class KeychainStore {
             kSecAttrAccount as String: key
         ]
         let status = SecItemDelete(query as CFDictionary)
+        lastStatus = status
         return status == errSecSuccess || status == errSecItemNotFound
     }
 }

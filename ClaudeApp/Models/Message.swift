@@ -9,6 +9,7 @@ struct Message: Codable, Identifiable {
     var attachments: [Attachment]
     var createdAt: Date
     var isError: Bool
+    var errorText: String?
     var feedback: Int?
     var model: String?
     var serverUuid: String?
@@ -18,7 +19,7 @@ struct Message: Codable, Identifiable {
         case assistant
     }
 
-    init(id: String = UUID().uuidString, role: Role, text: String = "", thinking: String? = nil, attachments: [Attachment] = [], createdAt: Date = Date(), isError: Bool = false, feedback: Int? = nil, model: String? = nil, serverUuid: String? = nil) {
+    init(id: String = UUID().uuidString, role: Role, text: String = "", thinking: String? = nil, attachments: [Attachment] = [], createdAt: Date = Date(), isError: Bool = false, errorText: String? = nil, feedback: Int? = nil, model: String? = nil, serverUuid: String? = nil) {
         self.id = id
         self.role = role
         self.text = text
@@ -26,9 +27,27 @@ struct Message: Codable, Identifiable {
         self.attachments = attachments
         self.createdAt = createdAt
         self.isError = isError
+        self.errorText = errorText
         self.feedback = feedback
         self.model = model
         self.serverUuid = serverUuid
+    }
+}
+
+extension Message {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(String.self, forKey: .id)
+        self.role = try c.decode(Role.self, forKey: .role)
+        self.text = try c.decode(String.self, forKey: .text)
+        self.thinking = try c.decodeIfPresent(String.self, forKey: .thinking)
+        self.attachments = try c.decode([Attachment].self, forKey: .attachments)
+        self.createdAt = try c.decode(Date.self, forKey: .createdAt)
+        self.isError = try c.decode(Bool.self, forKey: .isError)
+        self.errorText = try c.decodeIfPresent(String.self, forKey: .errorText)
+        self.feedback = try c.decodeIfPresent(Int.self, forKey: .feedback)
+        self.model = try c.decodeIfPresent(String.self, forKey: .model)
+        self.serverUuid = try c.decodeIfPresent(String.self, forKey: .serverUuid)
     }
 }
 

@@ -22,6 +22,7 @@ final class ChatViewController: UIViewController {
     private var accountLiveStarted: Bool = false
     private var accountLiveStep: Int = 0
     private var accountLiveError: String? = nil
+    private var accountLiveStage: String = ""
 
     init(conversationId: String?, projectId: String?) {
         self.conversationIdParam = conversationId
@@ -402,6 +403,7 @@ final class ChatViewController: UIViewController {
                         }
                     } else if self.accountLiveStep == 2 {
                         self.accountLiveStep = 3
+                        self.accountLiveStage = "second"
                         self.writeAccountLiveResult()
                     }
                 }
@@ -449,9 +451,7 @@ final class ChatViewController: UIViewController {
                 } else {
                     self.messages[assistantIndex].isError = true
                     let desc = (error as NSError).localizedDescription
-                    if self.messages[assistantIndex].text.isEmpty {
-                        self.messages[assistantIndex].text = desc
-                    }
+                    self.messages[assistantIndex].errorText = desc
                     if let cell = self.tableView.cellForRow(at: IndexPath(row: assistantIndex, section: 0)) as? AssistantMessageCell {
                         cell.configure(message: self.messages[assistantIndex], isStreaming: false)
                     }
@@ -468,6 +468,11 @@ final class ChatViewController: UIViewController {
 
                 if AppRouter.screenshotScreen == "account_live" {
                     self.accountLiveError = (error as NSError).localizedDescription
+                    if self.accountLiveStep == 1 {
+                        self.accountLiveStage = "first"
+                    } else if self.accountLiveStep == 2 {
+                        self.accountLiveStage = "second"
+                    }
                     if self.accountLiveStep == 1 || self.accountLiveStep == 2 {
                         self.accountLiveStep = 3
                         self.writeAccountLiveResult()
@@ -592,6 +597,7 @@ final class ChatViewController: UIViewController {
         let dict: [String: Any] = [
             "chat_id": chatId,
             "ok": ok,
+            "stage": self.accountLiveStage,
             "error": self.accountLiveError ?? ""
         ]
         if let data = try? JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted]) {

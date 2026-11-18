@@ -76,6 +76,7 @@ jobs:
           done
           sleep 2
           xcrun simctl io "$UDID" screenshot live/final.png
+          echo "app diag: $(cat "$DATA/Documents/account_live_diag.json" 2>/dev/null || echo 'none')"
           cp "$RES" live/account_live_result.json 2>/dev/null || echo '{"ok": false, "error": "no result file (timeout)"}' > live/account_live_result.json
           find ~/Library/Logs/DiagnosticReports -name 'ClaudeApp*' -exec sh -c 'echo "=== CRASH $1"; head -60 "$1"' _ {} \; 2>/dev/null || true
       - name: Report and clean up test conversation

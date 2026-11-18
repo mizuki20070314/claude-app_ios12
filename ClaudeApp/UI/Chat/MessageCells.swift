@@ -168,6 +168,7 @@ final class AssistantMessageCell: UITableViewCell {
         errorLabel.font = Fonts.sans(size: 14)
         errorLabel.textColor = Theme.current.destructive
         errorLabel.numberOfLines = 0
+        errorLabel.lineBreakMode = .byWordWrapping
         errorLabel.translatesAutoresizingMaskIntoConstraints = false
         errorStack.addSubview(errorLabel)
 
@@ -249,7 +250,13 @@ final class AssistantMessageCell: UITableViewCell {
         // error row
         errorStack.isHidden = !message.isError
         if message.isError {
-            errorLabel.text = message.text.isEmpty ? L("chat.error", "Chat") : message.text
+            if let et = message.errorText, !et.isEmpty {
+                errorLabel.text = et
+            } else if !message.text.isEmpty {
+                errorLabel.text = message.text
+            } else {
+                errorLabel.text = L("chat.error", "Chat")
+            }
         }
 
         // artifact cards

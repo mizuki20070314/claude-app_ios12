@@ -9,6 +9,7 @@ enum AnthropicError: Error, LocalizedError {
     case decoding(String)
     case cancelled
     case accountChatUnsupported
+    case accountNotLoggedIn
 
     var errorDescription: String? {
         switch self {
@@ -20,6 +21,7 @@ enum AnthropicError: Error, LocalizedError {
         case .decoding(let m): return "応答の解析に失敗しました: \(m)"
         case .cancelled: return "キャンセルしました。"
         case .accountChatUnsupported: return "Claude.ai アカウントログインは完了しましたが、このクライアントのチャット送信は API キー方式を使用します。設定で API キーを設定してください。"
+    case .accountNotLoggedIn: return "Claude.ai のセッションがありません。設定から claude.ai に再ログインしてください。"
         }
     }
 }
@@ -87,7 +89,7 @@ final class AnthropicClient {
             let session = URLSession(configuration: .ephemeral)
             let dummyTask = session.dataTask(with: URL(string: "https://claude.ai")!)
             let handle = StreamHandle(task: dummyTask, session: session)
-            DispatchQueue.main.async { onError(AnthropicError.accountChatUnsupported) }
+            DispatchQueue.main.async { onError(AnthropicError.accountNotLoggedIn) }
             return handle
         }
         let base = settings.apiBaseURL
@@ -372,7 +374,7 @@ final class AnthropicClient {
     func validateKey(completion: @escaping (Result<Void, Error>) -> Void) {
         let settings = SettingsStore.shared
         if settings.authMode == "claudeAccount" {
-            DispatchQueue.main.async { completion(.failure(AnthropicError.accountChatUnsupported)) }
+            DispatchQueue.main.async { completion(.failure(AnthropicError.accountNotLoggedIn)) }
             return
         }
         let base = settings.apiBaseURL
