@@ -66,3 +66,4 @@
 "settings.account.loginClaude" = "Sign in with claude.ai";
 "settings.account.updateCookie" = "Update cookie";
 "settings.account.logout" = "Sign out";
+"settings.model.effort" = "Effort";

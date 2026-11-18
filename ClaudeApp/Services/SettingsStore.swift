@@ -3,14 +3,27 @@ import Foundation
 final class SettingsStore {
     static let shared = SettingsStore()
 
+    static let didChange = Notification.Name("SettingsStore.didChange")
+
     private let defaults = UserDefaults.standard
-    private let changeName = Notification.Name("SettingsStore.didChange")
 
     private init() {}
 
     private func postChange() {
         DispatchQueue.main.async {
-            NotificationCenter.default.post(name: self.changeName, object: self)
+            NotificationCenter.default.post(name: SettingsStore.didChange, object: self)
+        }
+    }
+
+    static func effortDisplayName(_ id: String) -> String {
+        switch id {
+        case "": return L("chat.effort.default", "Chat")
+        case "low": return L("chat.effort.low", "Chat")
+        case "medium": return L("chat.effort.medium", "Chat")
+        case "high": return L("chat.effort.high", "Chat")
+        case "xhigh": return L("chat.effort.xhigh", "Chat")
+        case "max": return L("chat.effort.max", "Chat")
+        default: return id
         }
     }
 
@@ -84,5 +97,10 @@ final class SettingsStore {
     var accountEmail: String {
         get { defaults.string(forKey: "accountEmail") ?? "" }
         set { defaults.set(newValue, forKey: "accountEmail"); postChange() }
+    }
+
+    var effort: String {
+        get { defaults.string(forKey: "effort") ?? "" }
+        set { defaults.set(newValue, forKey: "effort"); postChange() }
     }
 }

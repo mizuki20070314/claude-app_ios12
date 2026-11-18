@@ -31,7 +31,7 @@ final class ConversationStore {
 
     var allConversations: [Conversation] {
         return queue.sync {
-            Array(convMap.values).sorted { $0.updatedAt > $1.updatedAt }
+            Array(convMap.values).sorted { $0.sortDate > $1.sortDate }
         }
     }
 
@@ -87,7 +87,7 @@ final class ConversationStore {
         return c.origin == "claudeAi"
     }
 
-    func mergeRemote(_ items: [Conversation]) {
+    func mergeRemote(_ items: [Conversation], fullResync: Bool = false) {
         queue.sync {
             for item in items {
                 guard item.origin == "claudeAi" else { continue }
@@ -97,6 +97,13 @@ final class ConversationStore {
                     existing.isStarred = item.isStarred
                     existing.model = item.model
                     existing.origin = "claudeAi"
+                    // lastActivityAt: don't overwrite a newer local value with an older
+                    // server value unless this is a full re-sync ordering pass.
+                    if fullResync {
+                        existing.lastActivityAt = item.lastActivityAt
+                    } else if existing.lastActivityAt == nil || (item.lastActivityAt != nil && item.lastActivityAt! > existing.lastActivityAt!) {
+                        existing.lastActivityAt = item.lastActivityAt
+                    }
                     // preserve messages, remoteLoaded, createdAt, projectId
                     convMap[item.id] = existing
                     if !demoMode { persist(existing) }
@@ -128,13 +135,13 @@ final class ConversationStore {
                     if text.contains(q) { return true }
                 }
                 return false
-            }.sorted { $0.updatedAt > $1.updatedAt }
+            }.sorted { $0.sortDate > $1.sortDate }
         }
     }
 
     func conversations(inProject projectId: String?) -> [Conversation] {
         return queue.sync {
-            convMap.values.filter { $0.projectId == projectId }.sorted { $0.updatedAt > $1.updatedAt }
+            convMap.values.filter { $0.projectId == projectId }.sorted { $0.sortDate > $1.sortDate }
         }
     }
 

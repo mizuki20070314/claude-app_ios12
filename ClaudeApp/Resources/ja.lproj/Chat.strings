@@ -18,8 +18,10 @@
 "chat.thumbsDown" = "悪い";
 "chat.options" = "チャットオプション";
 "chat.rename" = "名前を変更";
-"chat.star" = "スター";
-"chat.unstar" = "スター解除";
+"chat.star" = "ピン留め";
+"chat.pin" = "ピン留め";
+"chat.unstar" = "ピン留めを解除";
+"chat.unpin" = "ピン留めを解除";
 "chat.addToProject" = "プロジェクトに追加";
 "chat.share" = "共有";
 "chat.delete" = "削除";
@@ -33,3 +35,10 @@
 "chat.error" = "エラーが発生しました";
 "chat.cancelled" = "キャンセルしました";
 "chat.attachmentLimit" = "添付できるのは最大5件です";
+"chat.effort" = "エフォート";
+"chat.effort.default" = "既定";
+"chat.effort.low" = "低";
+"chat.effort.medium" = "中";
+"chat.effort.high" = "高";
+"chat.effort.xhigh" = "最高";
+"chat.effort.max" = "最大";

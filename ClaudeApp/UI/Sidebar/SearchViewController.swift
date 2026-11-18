@@ -150,7 +150,7 @@ extension SearchViewController: UITableViewDataSource, UITableViewDelegate {
         let cell = tableView.dequeueReusableCell(withIdentifier: SearchResultCell.reuseId, for: indexPath) as! SearchResultCell
         let conv = results[indexPath.row]
         let snip = snippet(for: conv)
-        cell.configure(title: conv.title, snippet: snip, date: relativeDate(conv.updatedAt), query: currentQuery)
+        cell.configure(title: conv.title, snippet: snip, date: relativeDate(conv.sortDate), query: currentQuery)
         return cell
     }
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {

@@ -179,6 +179,7 @@ final class ComposerView: UIView {
         updateSendState()
 
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: Theme.didChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(settingsChanged), name: SettingsStore.didChange, object: nil)
     }
 
     override func layoutSubviews() {
@@ -190,6 +191,10 @@ final class ComposerView: UIView {
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc private func settingsChanged() {
+        updateModelTitle()
+    }
 
     @objc private func themeChanged() {
         card.backgroundColor = Theme.current.composerBackground
@@ -245,7 +250,11 @@ final class ComposerView: UIView {
     }
 
     private func updateModelTitle() {
-        let short = shortName(for: selectedModelId)
+        var short = shortName(for: selectedModelId)
+        let effort = SettingsStore.shared.effort
+        if !effort.isEmpty {
+            short += " · " + SettingsStore.effortDisplayName(effort)
+        }
         modelButton.setTitle(short, for: .normal)
         modelButton.setTitleColor(Theme.current.textPrimary, for: .normal)
     }

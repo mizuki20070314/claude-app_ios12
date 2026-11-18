@@ -39,16 +39,16 @@ final class ConversationListViewController: UIViewController {
 
     private func rebuild() {
         let all = ConversationStore.shared.allConversations
-        // starred section
-        let starred = all.filter { $0.isStarred }
+        // pinned section
+        let pinned = all.filter { $0.isStarred }
         let recent = all.filter { !$0.isStarred }
         var newSections: [(title: String, items: [Conversation])] = []
-        if !starred.isEmpty {
-            newSections.append((L("sidebar.starred", "Sidebar"), starred))
+        if !pinned.isEmpty {
+            newSections.append((L("sidebar.pinned", "Sidebar"), pinned))
         }
         var buckets: [String: [Conversation]] = [:]
         for conv in recent {
-            let key = bucket(for: conv.updatedAt)
+            let key = bucket(for: conv.sortDate)
             if buckets[key] == nil { buckets[key] = [] }
             buckets[key]?.append(conv)
         }

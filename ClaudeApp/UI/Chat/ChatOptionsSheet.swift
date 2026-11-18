@@ -66,6 +66,9 @@ final class ChatOptionsSheet: UIViewController {
         alert.addAction(UIAlertAction(title: L("common.ok", "Localizable"), style: .default, handler: { _ in
             if let t = alert.textFields?.first?.text, !t.isEmpty {
                 ConversationStore.shared.rename(id: self.conversation.id, title: t)
+                if self.conversation.origin == "claudeAi" {
+                    ClaudeHistoryService.shared.rename(id: self.conversation.id, title: t) { _ in }
+                }
                 self.onChange()
                 self.dismiss(animated: true)
             }
@@ -74,9 +77,34 @@ final class ChatOptionsSheet: UIViewController {
     }
 
     @objc private func starTapped() {
-        ConversationStore.shared.toggleStar(id: conversation.id)
-        onChange()
-        dismiss(animated: true)
+        let isRemote = (conversation.origin == "claudeAi")
+        let newStarred = !conversation.isStarred
+        if isRemote {
+            if var c = ConversationStore.shared.conversation(id: conversation.id) {
+                c.isStarred = newStarred
+                ConversationStore.shared.save(c, touch: false)
+            }
+            ClaudeHistoryService.shared.setStarred(id: conversation.id, starred: newStarred) { [weak self] err in
+                DispatchQueue.main.async {
+                    guard let self = self else { return }
+                    if let err = err {
+                        if var c = ConversationStore.shared.conversation(id: self.conversation.id) {
+                            c.isStarred = self.conversation.isStarred
+                            ConversationStore.shared.save(c, touch: false)
+                        }
+                        let alert = UIAlertController(title: L("chat.error", "Chat"), message: err.localizedDescription, preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: L("common.ok", "Common"), style: .default))
+                        self.present(alert, animated: true)
+                    }
+                    self.onChange()
+                    self.dismiss(animated: true)
+                }
+            }
+        } else {
+            ConversationStore.shared.toggleStar(id: conversation.id)
+            onChange()
+            dismiss(animated: true)
+        }
     }
 
     @objc private func projectTapped() {
@@ -86,7 +114,7 @@ final class ChatOptionsSheet: UIViewController {
             alert.addAction(UIAlertAction(title: p.name, style: .default, handler: { _ in
                 if var c = ConversationStore.shared.conversation(id: self.conversation.id) {
                     c.projectId = p.id
-                    ConversationStore.shared.save(c)
+                    ConversationStore.shared.save(c, touch: false)
                     self.onChange()
                 }
                 self.dismiss(animated: true)
@@ -106,7 +134,11 @@ final class ChatOptionsSheet: UIViewController {
         let alert = UIAlertController(title: L("chat.delete", "Chat"), message: L("chat.deleteConfirm", "Chat"), preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: L("common.cancel", "Localizable"), style: .cancel))
         alert.addAction(UIAlertAction(title: L("chat.delete", "Chat"), style: .destructive, handler: { _ in
+            let isRemote = (self.conversation.origin == "claudeAi")
             ConversationStore.shared.delete(id: self.conversation.id)
+            if isRemote {
+                ClaudeHistoryService.shared.delete(id: self.conversation.id) { _ in }
+            }
             self.onChange()
             self.dismiss(animated: true)
         }))

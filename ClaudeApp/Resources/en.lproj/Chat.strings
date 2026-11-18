@@ -18,8 +18,10 @@
 "chat.thumbsDown" = "Bad";
 "chat.options" = "Chat options";
 "chat.rename" = "Rename";
-"chat.star" = "Star";
-"chat.unstar" = "Unstar";
+"chat.star" = "Pin";
+"chat.pin" = "Pin";
+"chat.unstar" = "Unpin";
+"chat.unpin" = "Unpin";
 "chat.addToProject" = "Add to project";
 "chat.share" = "Share";
 "chat.delete" = "Delete";
@@ -33,3 +35,10 @@
 "chat.error" = "An error occurred";
 "chat.cancelled" = "Cancelled";
 "chat.attachmentLimit" = "You can add at most 5 attachments";
+"chat.effort" = "Effort";
+"chat.effort.default" = "Default";
+"chat.effort.low" = "Low";
+"chat.effort.medium" = "Medium";
+"chat.effort.high" = "High";
+"chat.effort.xhigh" = "Highest";
+"chat.effort.max" = "Max";

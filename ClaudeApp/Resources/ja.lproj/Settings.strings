@@ -66,3 +66,4 @@
 "settings.account.loginClaude" = "claude.ai でログイン";
 "settings.account.updateCookie" = "Cookie を更新";
 "settings.account.logout" = "ログアウト";
+"settings.model.effort" = "エフォート";

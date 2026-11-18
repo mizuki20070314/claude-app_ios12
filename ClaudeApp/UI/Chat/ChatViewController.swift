@@ -422,7 +422,7 @@ final class ChatViewController: UIViewController {
             var conv = Conversation(title: "新規チャット", projectId: projectIdParam, model: model, messages: [])
             conversation = conv
             // ensure id
-            ConversationStore.shared.save(conv)
+            ConversationStore.shared.save(conv, touch: false)
         }
         guard var conv = conversation else { return }
 
@@ -430,8 +430,9 @@ final class ChatViewController: UIViewController {
         let userMsg = Message(role: .user, text: text, attachments: attachments)
         messages.append(userMsg)
         conv.messages.append(userMsg)
+        conv.lastActivityAt = Date()
         conversation = conv
-        ConversationStore.shared.save(conv)
+        ConversationStore.shared.save(conv, touch: false)
 
         showEmptyState(false)
         tableView.reloadData()
@@ -495,12 +496,13 @@ final class ChatViewController: UIViewController {
                 var c = self.conversation!
                 c.messages = self.messages
                 c.updatedAt = Date()
+                c.lastActivityAt = Date()
                 if SettingsStore.shared.authMode == "claudeAccount" && ClaudeAccountAuth.shared.isLoggedIn && isNewConversation {
                     c.origin = "claudeAi"
                     c.remoteLoaded = true
                 }
                 self.conversation = c
-                ConversationStore.shared.save(c)
+                ConversationStore.shared.save(c, touch: false)
                 self.updateTitleView()
 
                 if AppRouter.screenshotScreen == "account_live" {
@@ -526,7 +528,7 @@ final class ChatViewController: UIViewController {
                         if var c2 = self.conversation {
                             c2.title = title
                             self.conversation = c2
-                            ConversationStore.shared.save(c2)
+                            ConversationStore.shared.save(c2, touch: false)
                             self.updateTitleView()
                         }
                     })
@@ -553,7 +555,7 @@ final class ChatViewController: UIViewController {
                     if var c = self.conversation {
                         c.messages = self.messages
                         self.conversation = c
-                        ConversationStore.shared.save(c)
+                        ConversationStore.shared.save(c, touch: false)
                     }
                     self.userCancelled = false
                 } else {
@@ -566,7 +568,7 @@ final class ChatViewController: UIViewController {
                     if var c = self.conversation {
                         c.messages = self.messages
                         self.conversation = c
-                        ConversationStore.shared.save(c)
+                        ConversationStore.shared.save(c, touch: false)
                     }
                 }
 
@@ -600,7 +602,7 @@ final class ChatViewController: UIViewController {
                 if var c = self.conversation {
                     c.messages = self.messages
                     self.conversation = c
-                    ConversationStore.shared.save(c)
+                    ConversationStore.shared.save(c, touch: false)
                 }
             }
         )
@@ -691,7 +693,7 @@ final class ChatViewController: UIViewController {
                     c.messages[ci].feedback = messages[idx].feedback
                 }
                 conversation = c
-                ConversationStore.shared.save(c)
+                ConversationStore.shared.save(c, touch: false)
             }
             tableView.reloadRows(at: [IndexPath(row: idx, section: 0)], with: .none)
         }
@@ -807,7 +809,7 @@ extension ChatViewController: ComposerViewDelegate {
         if var c = conversation {
             c.messages = messages
             conversation = c
-            ConversationStore.shared.save(c)
+            ConversationStore.shared.save(c, touch: false)
         }
         if let cell = tableView.cellForRow(at: IndexPath(row: messages.count - 1, section: 0)) as? AssistantMessageCell {
             cell.setStreaming(false)
@@ -836,7 +838,7 @@ extension ChatViewController: ComposerViewDelegate {
             if var c = self?.conversation {
                 c.model = option.id
                 self?.conversation = c
-                ConversationStore.shared.save(c)
+                ConversationStore.shared.save(c, touch: false)
             }
         })
         BottomSheetController.present(picker, from: self)

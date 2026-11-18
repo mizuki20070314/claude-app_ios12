@@ -122,11 +122,35 @@ final class ClaudeAccountClient {
                         self.claudeAccountModelIds = ids
                         UserDefaults.standard.set(ids, forKey: "claudeAccountModelIds")
                     }
+                    let parsed = self.collectEffortOptions(from: json)
+                    // Cache per-model effort options (and defaults) whenever bootstrap succeeds.
+                    UserDefaults.standard.set(parsed.options, forKey: "claudeAccountEffortOptions")
+                    if !parsed.defaults.isEmpty {
+                        UserDefaults.standard.set(parsed.defaults, forKey: "claudeAccountEffortDefaults")
+                    }
                 }
             }
             completion(ok)
         }
         task.resume()
+    }
+
+    // MARK: - Effort options
+
+    func effortOptions(for modelId: String) -> [String] {
+        // If no cache at all, fall back to the full set.
+        guard UserDefaults.standard.object(forKey: "claudeAccountEffortOptions") != nil else {
+            return ["low", "medium", "high", "xhigh", "max"]
+        }
+        guard let dict = UserDefaults.standard.dictionary(forKey: "claudeAccountEffortOptions") else { return [] }
+        if let arr = dict[modelId] as? [String] { return arr }
+        if let arr = dict[modelId] as? [Any] { return arr.compactMap { $0 as? String } }
+        return []
+    }
+
+    func effortDefault(for modelId: String) -> String? {
+        guard let dict = UserDefaults.standard.dictionary(forKey: "claudeAccountEffortDefaults") else { return nil }
+        return dict[modelId] as? String
     }
 
     // MARK: - Streaming
@@ -279,7 +303,12 @@ final class ClaudeAccountClient {
                     body["create_conversation_params"] = NSNull()
                 }
                 body["tools"] = [] as [Any]
-                body["effort"] = NSNull()
+                // effort: send only when non-empty and supported by the model; otherwise omit.
+                let effortValue = SettingsStore.shared.effort
+                let effortOpts = self.effortOptions(for: resolvedModel)
+                if !effortValue.isEmpty && effortOpts.contains(effortValue) {
+                    body["effort"] = effortValue
+                }
                 if extendedThinking {
                     body["thinking_mode"] = "extended"
                 } else {
@@ -615,6 +644,67 @@ final class ClaudeAccountClient {
         }
         walk(json, key: nil)
         return result
+    }
+
+    private func collectEffortOptions(from json: Any) -> (options: [String: [String]], defaults: [String: String]) {
+        var options: [String: [String]] = [:]
+        var defaults: [String: String] = [:]
+
+        let optionKeys = ["default_effort", "defaultEffort", "default_option", "defaultOption", "default", "default_effort_level"]
+
+        func parseOptions(from dict: [String: Any]) -> [String] {
+            var arr: [[String: Any]]? = nil
+            if let a = dict["effort_options"] as? [[String: Any]] { arr = a }
+            else if let thinking = dict["thinking"] as? [String: Any],
+                    let a = thinking["effort_options"] as? [[String: Any]] { arr = a }
+            guard let a = arr else { return [] }
+            return a.compactMap { $0["id"] as? String }
+        }
+
+        func parseDefault(from dict: [String: Any], opts: [String]) -> String? {
+            for key in optionKeys {
+                if let s = dict[key] as? String { return s }
+                if let thinking = dict["thinking"] as? [String: Any], let s = thinking[key] as? String { return s }
+            }
+            // recommended flag
+            var arr: [[String: Any]]? = nil
+            if let a = dict["effort_options"] as? [[String: Any]] { arr = a }
+            else if let thinking = dict["thinking"] as? [String: Any], let a = thinking["effort_options"] as? [[String: Any]] { arr = a }
+            if let a = arr {
+                for o in a {
+                    if (o["recommended"] as? Bool) == true, let id = o["id"] as? String { return id }
+                }
+            }
+            return nil
+        }
+
+        func walk(_ obj: Any, currentModelId: String?) {
+            if let dict = obj as? [String: Any] {
+                var modelId = currentModelId
+                if let id = dict["id"] as? String, !id.isEmpty {
+                    modelId = id
+                } else if let id = dict["model"] as? String, !id.isEmpty {
+                    modelId = id
+                }
+                // If this dict carries effort options, record them.
+                let opts = parseOptions(from: dict)
+                if !opts.isEmpty, let mid = modelId, !mid.isEmpty {
+                    options[mid] = opts
+                    if let d = parseDefault(from: dict, opts: opts) {
+                        defaults[mid] = d
+                    }
+                }
+                for (_, v) in dict {
+                    walk(v, currentModelId: modelId)
+                }
+            } else if let arr = obj as? [Any] {
+                for v in arr {
+                    walk(v, currentModelId: currentModelId)
+                }
+            }
+        }
+        walk(json, currentModelId: nil)
+        return (options, defaults)
     }
 
     func parentMessageUuid(from messages: [Message]) -> String? {

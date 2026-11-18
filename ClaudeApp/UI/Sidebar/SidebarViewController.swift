@@ -278,17 +278,17 @@ final class SidebarViewController: UIViewController {
 
     private func reloadData() {
         let all = ConversationStore.shared.allConversations
-        let starred = all.filter { $0.isStarred }
+        let pinned = all.filter { $0.isStarred }
         let recent = all.filter { !$0.isStarred }
 
         var newSections: [(title: String, items: [Conversation])] = []
-        if !starred.isEmpty {
-            newSections.append((L("sidebar.starred", "Sidebar"), starred))
+        if !pinned.isEmpty {
+            newSections.append((L("sidebar.pinned", "Sidebar"), pinned))
         }
         // group recent by date buckets in fixed order
         var buckets: [String: [Conversation]] = [:]
         for conv in recent {
-            let key = bucket(for: conv.updatedAt)
+            let key = bucket(for: conv.sortDate)
             if buckets[key] == nil { buckets[key] = [] }
             buckets[key]?.append(conv)
         }

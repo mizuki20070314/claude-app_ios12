@@ -131,7 +131,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case 0: return 1 // profile
         case 1: return accountRows().count // account/auth
         case 2: return 1 // appearance
-        case 3: return 4 // model
+        case 3: return 5 // model
         case 4: return 1 // style
         case 5: return 2 // chat
         case 6: return 2 // data
@@ -276,12 +276,22 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.detailTextLabel?.textColor = t.textSecondary
                 cell.accessoryType = .disclosureIndicator
                 return cell
-            } else {
+            } else if indexPath.row == 3 {
                 let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
                 cell.backgroundColor = t.surface
                 cell.textLabel?.text = L("settings.model.maxTokens", "Settings")
                 cell.textLabel?.textColor = t.textPrimary
                 cell.detailTextLabel?.text = "\(SettingsStore.shared.maxTokens)"
+                cell.detailTextLabel?.textColor = t.textSecondary
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            } else {
+                let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+                cell.backgroundColor = t.surface
+                cell.textLabel?.text = L("settings.model.effort", "Settings")
+                cell.textLabel?.textColor = t.textPrimary
+                let current = SettingsStore.shared.effort
+                cell.detailTextLabel?.text = current.isEmpty ? L("chat.effort.default", "Chat") : SettingsStore.effortDisplayName(current)
                 cell.detailTextLabel?.textColor = t.textSecondary
                 cell.accessoryType = .disclosureIndicator
                 return cell
@@ -462,6 +472,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             if indexPath.row == 0 { showModelPicker() }
             else if indexPath.row == 2 { showThinkingBudgetPicker() }
             else if indexPath.row == 3 { showMaxTokensPicker() }
+            else if indexPath.row == 4 { showEffortPicker() }
         case 4:
             showStylePicker()
         case 6:
@@ -528,6 +539,24 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         let idx = values.firstIndex(of: SettingsStore.shared.maxTokens) ?? 1
         let vc = OptionListViewController(title: L("settings.model.maxTokens","Settings"), options: opts, selectedIndex: idx) { i in
             SettingsStore.shared.maxTokens = values[i]
+        }
+        pushOrPresent(vc)
+    }
+
+    private func showEffortPicker() {
+        let keys = ["", "low", "medium", "high", "xhigh", "max"]
+        let titles = [
+            L("chat.effort.default", "Chat"),
+            L("chat.effort.low", "Chat"),
+            L("chat.effort.medium", "Chat"),
+            L("chat.effort.high", "Chat"),
+            L("chat.effort.xhigh", "Chat"),
+            L("chat.effort.max", "Chat")
+        ]
+        let opts = titles.map { ($0, nil as String?) }
+        let idx = keys.firstIndex(of: SettingsStore.shared.effort) ?? 0
+        let vc = OptionListViewController(title: L("settings.model.effort", "Settings"), options: opts, selectedIndex: idx) { i in
+            SettingsStore.shared.effort = keys[i]
         }
         pushOrPresent(vc)
     }

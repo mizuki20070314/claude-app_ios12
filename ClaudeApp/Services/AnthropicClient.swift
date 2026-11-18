@@ -304,6 +304,13 @@ final class AnthropicClient {
         }
         dict["max_tokens"] = mt
 
+        // Effort (API-key mode): unverified; documented as output_config.effort.
+        // Only low/medium/high are sent; other values are ignored here.
+        let effort = SettingsStore.shared.effort
+        if !effort.isEmpty && (effort == "low" || effort == "medium" || effort == "high") {
+            dict["output_config"] = ["effort": effort]
+        }
+
         return (try? JSONSerialization.data(withJSONObject: dict, options: [])) ?? Data()
     }
 
