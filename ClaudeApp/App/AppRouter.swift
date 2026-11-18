@@ -181,12 +181,21 @@ final class AppRouter {
     }
 
     #if DEBUG
+    private func liveProgress(_ step: String) {
+        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let url = dir.appendingPathComponent("account_live_progress.txt")
+        let line = "\(Date().timeIntervalSince1970) \(step)\n"
+        if let h = try? FileHandle(forWritingTo: url) { h.seekToEndOfFile(); h.write(Data(line.utf8)); h.closeFile() } else { try? Data(line.utf8).write(to: url) }
+    }
+
     private func runAccountHistoryLive() {
+        liveProgress("history: start")
         var stage = "sync"
         var error: String? = nil
         var counts: [String: Int] = ["conversations": 0, "messages": 0]
         ClaudeHistoryService.shared.syncRecents(maxPages: 3) { err in
             DispatchQueue.main.async {
+                self.liveProgress("history: sync done error=\(err != nil)")
                 if let err = err {
                     error = err.localizedDescription
                     self.writeLiveResult(ok: false, error: error ?? "", stage: "sync", counts: counts, extraFiles: [])
@@ -201,8 +210,10 @@ final class AppRouter {
                     return
                 }
                 stage = "load"
+                self.liveProgress("history: load start (remotes=\(remotes.count))")
                 ClaudeHistoryService.shared.loadConversation(id: newest.id) { result in
                     DispatchQueue.main.async {
+                        self.liveProgress("history: load done")
                         switch result {
                         case .success(let conv):
                             counts["conversations"] = ConversationStore.shared.allConversations.filter { $0.origin == "claudeAi" }.count

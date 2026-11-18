@@ -30,8 +30,8 @@ final class CodeSessionViewController: UIViewController {
         view.backgroundColor = Theme.current.background
         title = session.title
 
+        setupFooter()   // footerLabel must be in the hierarchy before the table constrains to it
         setupTable()
-        setupFooter()
         buildHeader()
         tableView.tableHeaderView = headerView
 

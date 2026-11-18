@@ -103,6 +103,7 @@ jobs:
             done
             sleep 6
             xcrun simctl io "$UDID" screenshot "live/${SCREEN}_final.png"
+            echo "app progress: $(tr '\n' '|' < "$DATA/Documents/account_live_progress.txt" 2>/dev/null)"; rm -f "$DATA/Documents/account_live_progress.txt"
             echo "app diag: $(cat "$DATA/Documents/account_live_diag.json" 2>/dev/null || echo 'none')"
             if [ -f "$RES" ]; then cp "$RES" "live/result_${SCREEN}.json"; else echo '{"ok": false, "error": "no result file (timeout)"}' > "live/result_${SCREEN}.json"; fi
             python3 -I -c 'import json,sys;r=json.load(open(sys.argv[1]));print("app result:", {k:r.get(k) for k in ("ok","stage","error","counts")})' "live/result_${SCREEN}.json"
