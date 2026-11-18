@@ -102,7 +102,7 @@ final class ModelPickerViewController: UIViewController {
         // Effort row
         let effortRow = UIView()
         effortRow.translatesAutoresizingMaskIntoConstraints = false
-        let effortRowHeight = effortRow.heightAnchor.constraint(equalToConstant: 64)
+        let effortRowHeight = effortRow.heightAnchor.constraint(equalToConstant: 84)
         effortRowHeight.isActive = true
         effortRowHeightConstraint = effortRowHeight
         let eLabel = UILabel()
@@ -146,7 +146,7 @@ final class ModelPickerViewController: UIViewController {
     private func updatePreferredContentSize() {
         let base: CGFloat = 60
         let perModel: CGFloat = 60
-        let effortExtra: CGFloat = (effortRowView?.isHidden == false) ? 70 : 0
+        let effortExtra: CGFloat = (effortRowView?.isHidden == false) ? 90 : 0
         let h = base + CGFloat(availableModels.count) * perModel + effortExtra
         preferredContentSize = CGSize(width: 320, height: max(320, h))
     }
@@ -160,7 +160,7 @@ final class ModelPickerViewController: UIViewController {
             seg.removeAllSegments()
         } else {
             row.isHidden = false
-            effortRowHeightConstraint?.constant = 64
+            effortRowHeightConstraint?.constant = 84
             // rebuild segments
             seg.removeAllSegments()
             seg.insertSegment(withTitle: L("chat.effort.default", "Chat"), at: 0, animated: false)
