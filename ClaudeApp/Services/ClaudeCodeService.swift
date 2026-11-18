@@ -466,7 +466,7 @@ final class ClaudeCodeService {
 
 final class CodeSessionSubscription {
     private var controller: SubscriptionController?
-    init(controller: SubscriptionController) {
+    fileprivate init(controller: SubscriptionController) {
         self.controller = controller
     }
     func cancel() {
