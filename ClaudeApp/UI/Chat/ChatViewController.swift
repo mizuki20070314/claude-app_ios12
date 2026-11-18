@@ -419,7 +419,7 @@ final class ChatViewController: UIViewController {
         // create conversation if nil
         if conversation == nil {
             let model = SettingsStore.shared.selectedModelId
-            var conv = Conversation(title: "新規チャット", projectId: projectIdParam, model: model, messages: [])
+            var conv = Conversation(id: UUID().uuidString.lowercased(), title: "新規チャット", projectId: projectIdParam, model: model, messages: [])
             conversation = conv
             // ensure id
             ConversationStore.shared.save(conv, touch: false)

@@ -41,89 +41,115 @@ final class ClaudeHistoryService {
             case .success(let org):
                 var pinnedItems: [Conversation] = []
                 var pinnedIds: Set<String> = []
-                var recentsItems: [Conversation] = []
-                var cursor: String? = nil
-                var visited = Set<String>()
-                var additionalPages = 0
+                var aSucceeded = false
 
-                self.fetchRecentsSections(org: org, section: nil, cursor: nil) { [weak self] result in
+                // Request A: no section, used ONLY to read pinned section.
+                self.fetchRecentsSections(org: org, section: nil, cursor: nil) { [weak self] resultA in
                     guard let self = self else { return }
-                    switch result {
-                    case .failure(let err):
-                        self.finishSync(error: err, items: [], pinnedIds: [], completion: completion)
+                    switch resultA {
                     case .success(let sections):
+                        aSucceeded = true
                         for sec in sections {
-                            let secId = sec["id"] as? String ?? ""
-                            let rows = sec["data"] as? [[String: Any]] ?? []
-                            if secId == "pinned" {
-                                let convs = self.conversationsFromRows(rows, forceStarred: true)
+                            if (sec["id"] as? String) == "pinned" {
+                                let rows = sec["data"] as? [[String: Any]] ?? []
+                                let convs = self.parseConversations(from: rows, forceStarred: true)
                                 pinnedItems.append(contentsOf: convs)
                                 for c in convs { pinnedIds.insert(c.id) }
-                            } else {
-                                let convs = self.conversationsFromRows(rows, forceStarred: false)
-                                recentsItems.append(contentsOf: convs)
-                                if secId == "recents" || cursor == nil {
-                                    if let nc = sec["next_cursor"] as? String, !nc.isEmpty {
-                                        cursor = nc
-                                    }
-                                }
                             }
                         }
-                        // prefer explicit recents cursor
-                        for sec in sections {
-                            if (sec["id"] as? String) == "recents" {
-                                if let nc = sec["next_cursor"] as? String, !nc.isEmpty {
-                                    cursor = nc
-                                }
-                            }
+                    case .failure:
+                        // pins optional; continue
+                        aSucceeded = false
+                    }
+
+                    // Request B: recents independently.
+                    var recentsItems: [Conversation] = []
+                    var cursor: String? = nil
+                    var visited = Set<String>()
+                    var pagesFetched = 0
+
+                    func finishAll() {
+                        let adjustedRecents = self.applyMonotonicLastActivity(recentsItems)
+                        let adjustedPinned = self.applyMonotonicLastActivity(pinnedItems)
+                        let recentsIdSet = Set(adjustedRecents.map { $0.id.lowercased() })
+                        let pinnedIdSet = Set(adjustedPinned.map { $0.id.lowercased() })
+
+                        var items: [Conversation] = []
+                        for c in adjustedPinned where !recentsIdSet.contains(c.id.lowercased()) {
+                            items.append(c)
+                        }
+                        for c in adjustedRecents {
+                            var x = c
+                            if pinnedIdSet.contains(x.id.lowercased()) { x.isStarred = true }
+                            items.append(x)
                         }
 
-                        func fetchMore() {
-                            guard additionalPages < maxPages else {
-                                let items = pinnedItems + recentsItems
-                                self.finishSync(error: nil, items: items, pinnedIds: pinnedIds, completion: completion)
-                                return
-                            }
-                            guard let c = cursor, !c.isEmpty else {
-                                let items = pinnedItems + recentsItems
-                                self.finishSync(error: nil, items: items, pinnedIds: pinnedIds, completion: completion)
-                                return
-                            }
+                        self.finishSync(error: nil, items: items, pinnedIds: pinnedIds, unpinStale: aSucceeded, completion: completion)
+                    }
+
+                    func fetchRecentsPage(cur: String?) {
+                        if pagesFetched >= maxPages {
+                            finishAll()
+                            return
+                        }
+                        if let c = cur, !c.isEmpty {
                             if visited.contains(c) {
-                                let items = pinnedItems + recentsItems
-                                self.finishSync(error: nil, items: items, pinnedIds: pinnedIds, completion: completion)
+                                finishAll()
                                 return
                             }
                             visited.insert(c)
-                            self.fetchRecentsSections(org: org, section: "recents", cursor: c) { pageResult in
-                                switch pageResult {
-                                case .failure(let err):
-                                    self.finishSync(error: err, items: pinnedItems + recentsItems, pinnedIds: pinnedIds, completion: completion)
-                                case .success(let secs):
-                                    var nextCursor: String? = nil
-                                    for sec in secs {
-                                        let rows = sec["data"] as? [[String: Any]] ?? []
-                                        let convs = self.conversationsFromRows(rows, forceStarred: false)
-                                        recentsItems.append(contentsOf: convs)
+                        }
+                        self.fetchRecentsSections(org: org, section: "recents", cursor: cur) { pageResult in
+                            switch pageResult {
+                            case .failure(let err):
+                                self.finishSync(error: err, items: pinnedItems + recentsItems, pinnedIds: pinnedIds, unpinStale: false, completion: completion)
+                            case .success(let secs):
+                                var nextCursor: String? = nil
+                                var rows: [[String: Any]] = []
+                                for sec in secs {
+                                    let sid = sec["id"] as? String ?? ""
+                                    let r = sec["data"] as? [[String: Any]] ?? []
+                                    if sid == "recents" || secs.count == 1 {
+                                        rows.append(contentsOf: r)
                                         if nextCursor == nil {
                                             nextCursor = sec["next_cursor"] as? String
                                         }
                                     }
-                                    if let nc = nextCursor, !nc.isEmpty { cursor = nc }
-                                    additionalPages += 1
-                                    fetchMore()
                                 }
+                                if rows.isEmpty && !secs.isEmpty {
+                                    for sec in secs {
+                                        rows.append(contentsOf: sec["data"] as? [[String: Any]] ?? [])
+                                        if nextCursor == nil { nextCursor = sec["next_cursor"] as? String }
+                                    }
+                                }
+                                let convs = self.parseConversations(from: rows, forceStarred: false)
+                                recentsItems.append(contentsOf: convs)
+                                pagesFetched += 1
+                                if let nc = nextCursor, !nc.isEmpty {
+                                    cursor = nc
+                                } else {
+                                    cursor = nil
+                                }
+                                if pagesFetched >= maxPages {
+                                    finishAll()
+                                    return
+                                }
+                                if cursor == nil || cursor!.isEmpty {
+                                    finishAll()
+                                    return
+                                }
+                                fetchRecentsPage(cur: cursor)
                             }
                         }
-                        visited.insert(cursor ?? "")
-                        fetchMore()
                     }
+
+                    fetchRecentsPage(cur: nil)
                 }
             }
         }
     }
 
-    private func conversationsFromRows(_ rows: [[String: Any]], forceStarred: Bool) -> [Conversation] {
+    private func parseConversations(from rows: [[String: Any]], forceStarred: Bool) -> [Conversation] {
         var parsed: [Conversation] = []
         for row in rows {
             if var c = self.conversationFromChatRow(row) {
@@ -131,9 +157,13 @@ final class ClaudeHistoryService {
                 parsed.append(c)
             }
         }
+        return parsed
+    }
+
+    private func applyMonotonicLastActivity(_ list: [Conversation]) -> [Conversation] {
         var prev: Date? = nil
         var result: [Conversation] = []
-        for c in parsed {
+        for c in list {
             var x = c
             if let p = prev {
                 x.lastActivityAt = min(x.updatedAt, p.addingTimeInterval(-0.001))
@@ -146,7 +176,7 @@ final class ClaudeHistoryService {
         return result
     }
 
-    private func finishSync(error: Error?, items: [Conversation], pinnedIds: Set<String>, completion: ((Error?) -> Void)? = nil) {
+    private func finishSync(error: Error?, items: [Conversation], pinnedIds: Set<String>, unpinStale: Bool = true, completion: ((Error?) -> Void)? = nil) {
         isSyncing = false
         if let err = error {
             DispatchQueue.main.async { completion?(err) }
@@ -154,10 +184,12 @@ final class ClaudeHistoryService {
         }
         ConversationStore.shared.mergeRemote(items, fullResync: true)
         DispatchQueue.main.async {
-            for c in ConversationStore.shared.allConversations where c.origin == "claudeAi" && c.isStarred && !pinnedIds.contains(c.id) {
-                var x = c
-                x.isStarred = false
-                ConversationStore.shared.save(x, touch: false)
+            if unpinStale {
+                for c in ConversationStore.shared.allConversations where c.origin == "claudeAi" && c.isStarred && !pinnedIds.contains(c.id) {
+                    var x = c
+                    x.isStarred = false
+                    ConversationStore.shared.save(x, touch: false)
+                }
             }
             NotificationCenter.default.post(name: ClaudeHistoryService.didSync, object: self)
             completion?(nil)

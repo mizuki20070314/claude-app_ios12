@@ -36,7 +36,14 @@ final class ConversationStore {
     }
 
     func conversation(id: String) -> Conversation? {
-        return queue.sync { convMap[id] }
+        return queue.sync {
+            if let c = convMap[id] { return c }
+            let lower = id.lowercased()
+            if let key = convMap.keys.first(where: { $0.lowercased() == lower }) {
+                return convMap[key]
+            }
+            return nil
+        }
     }
 
     func save(_ conversation: Conversation, touch: Bool = true) {
@@ -89,26 +96,45 @@ final class ConversationStore {
 
     func mergeRemote(_ items: [Conversation], fullResync: Bool = false) {
         queue.sync {
+            // one-time cleanup: merge entries whose ids are equal ignoring case
+            cleanupCaseInsensitiveDuplicates()
+
             for item in items {
                 guard item.origin == "claudeAi" else { continue }
-                if var existing = convMap[item.id] {
-                    existing.title = item.title
-                    existing.updatedAt = item.updatedAt
-                    existing.isStarred = item.isStarred
-                    existing.model = item.model
-                    existing.origin = "claudeAi"
+                let targetId = item.id.lowercased()
+                // case-insensitive match
+                let existingKey = convMap.keys.first { $0.lowercased() == targetId }
+                if let key = existingKey, var existing = convMap[key] {
+                    // migrate to lowercase id if needed
+                    if key != targetId {
+                        existing.id = targetId
+                        convMap[targetId] = existing
+                        convMap.removeValue(forKey: key)
+                        if !demoMode {
+                            let oldUrl = self.dir.appendingPathComponent("conv_\(key).json")
+                            try? FileManager.default.removeItem(at: oldUrl)
+                        }
+                    }
+                    var e = convMap[targetId]!
+                    e.id = targetId
+                    e.title = item.title
+                    e.updatedAt = item.updatedAt
+                    e.isStarred = item.isStarred
+                    e.model = item.model
+                    e.origin = "claudeAi"
                     // lastActivityAt: don't overwrite a newer local value with an older
                     // server value unless this is a full re-sync ordering pass.
                     if fullResync {
-                        existing.lastActivityAt = item.lastActivityAt
-                    } else if existing.lastActivityAt == nil || (item.lastActivityAt != nil && item.lastActivityAt! > existing.lastActivityAt!) {
-                        existing.lastActivityAt = item.lastActivityAt
+                        e.lastActivityAt = item.lastActivityAt
+                    } else if e.lastActivityAt == nil || (item.lastActivityAt != nil && item.lastActivityAt! > e.lastActivityAt!) {
+                        e.lastActivityAt = item.lastActivityAt
                     }
                     // preserve messages, remoteLoaded, createdAt, projectId
-                    convMap[item.id] = existing
-                    if !demoMode { persist(existing) }
+                    convMap[targetId] = e
+                    if !demoMode { persist(e) }
                 } else {
                     var c = item
+                    c.id = targetId
                     c.origin = c.origin ?? "claudeAi"
                     convMap[c.id] = c
                     if !demoMode { persist(c) }
@@ -120,6 +146,40 @@ final class ConversationStore {
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: self.changeName, object: self)
             }
+        }
+    }
+
+    private func cleanupCaseInsensitiveDuplicates() {
+        var groups: [String: [String]] = [:]
+        for key in convMap.keys {
+            groups[key.lowercased(), default: []].append(key)
+        }
+        for (lower, keys) in groups where keys.count > 1 {
+            // prefer entry with more messages
+            var bestKey = keys[0]
+            for k in keys {
+                let bestCount = convMap[bestKey]?.messages.count ?? 0
+                let kCount = convMap[k]?.messages.count ?? 0
+                if kCount > bestCount { bestKey = k }
+            }
+            var merged = convMap[bestKey]!
+            merged.id = lower
+            // preserve remoteLoaded if any entry had it
+            for k in keys {
+                if let other = convMap[k], (other.remoteLoaded ?? false) && !(merged.remoteLoaded ?? false) {
+                    merged.remoteLoaded = other.remoteLoaded
+                }
+            }
+            // remove all old keys/files
+            for k in keys {
+                convMap.removeValue(forKey: k)
+                if !demoMode {
+                    let url = self.dir.appendingPathComponent("conv_\(k).json")
+                    try? FileManager.default.removeItem(at: url)
+                }
+            }
+            convMap[lower] = merged
+            if !demoMode { persist(merged) }
         }
     }
 
