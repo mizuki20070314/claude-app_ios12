@@ -208,9 +208,9 @@ final class CookieLoginViewController: UIViewController {
     }
 
     private func makeRightView() -> UIView {
-        let v = UIView(frame: CGRect(x: 0, y: 0, width: 88, height: 44))
-        showHideButton.frame = CGRect(x: 0, y: 0, width: 44, height: 44)
-        pasteButton.frame = CGRect(x: 44, y: 0, width: 44, height: 44)
+        let v = UIView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
+        showHideButton.frame = CGRect(x: 0, y: 0, width: 48, height: 44)
+        pasteButton.frame = CGRect(x: 48, y: 0, width: 66, height: 44)
         v.addSubview(showHideButton)
         v.addSubview(pasteButton)
         return v
