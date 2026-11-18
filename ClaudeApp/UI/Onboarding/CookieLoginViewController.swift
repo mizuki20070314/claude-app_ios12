@@ -15,6 +15,8 @@ final class CookieLoginViewController: UIViewController {
     private let scrollView = UIScrollView()
     private let content = UIView()
 
+    private let columnStack = UIStackView()
+
     private let explanationLabel = UILabel()
     private let stepsStack = UIStackView()
 
@@ -28,6 +30,7 @@ final class CookieLoginViewController: UIViewController {
     private let warningLabel = UILabel()
 
     private var keyboardObserver: NSObjectProtocol?
+    private var scrollViewBottomConstraint: NSLayoutConstraint?
 
     // MARK: - Lifecycle
 
@@ -38,6 +41,12 @@ final class CookieLoginViewController: UIViewController {
         applyTheme()
         registerThemeObserver()
         registerKeyboardObserver()
+
+        // When this VC is the root of its navigation controller (presented modally),
+        // provide a left "閉じる" button that dismisses. When pushed, rely on back button.
+        if navigationController?.viewControllers.first === self {
+            navigationItem.leftBarButtonItem = UIBarButtonItem(title: "閉じる", style: .plain, target: self, action: #selector(closeTapped))
+        }
     }
 
     deinit {
@@ -56,18 +65,36 @@ final class CookieLoginViewController: UIViewController {
         content.translatesAutoresizingMaskIntoConstraints = false
         scrollView.addSubview(content)
 
+        columnStack.axis = .vertical
+        columnStack.spacing = 12
+        columnStack.alignment = .fill
+        columnStack.distribution = .fill
+        columnStack.translatesAutoresizingMaskIntoConstraints = false
+        content.addSubview(columnStack)
+
+        let bottomConstraint = scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        scrollViewBottomConstraint = bottomConstraint
+
         NSLayoutConstraint.activate([
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            bottomConstraint,
 
-            content.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 24),
-            content.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -24),
-            content.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
-            content.widthAnchor.constraint(lessThanOrEqualToConstant: 480)
+            content.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            content.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            content.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            content.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
+
+            columnStack.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+            columnStack.leadingAnchor.constraint(greaterThanOrEqualTo: content.leadingAnchor, constant: 20),
+            columnStack.trailingAnchor.constraint(lessThanOrEqualTo: content.trailingAnchor, constant: -20),
+            columnStack.widthAnchor.constraint(lessThanOrEqualToConstant: 480),
+            columnStack.topAnchor.constraint(equalTo: content.topAnchor, constant: 24),
+            columnStack.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -24)
         ])
-        let widthConstraint = content.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
+        let widthConstraint = columnStack.widthAnchor.constraint(equalTo: content.widthAnchor, constant: -40)
         widthConstraint.priority = .defaultHigh
         widthConstraint.isActive = true
 
@@ -76,13 +103,13 @@ final class CookieLoginViewController: UIViewController {
         explanationLabel.font = Fonts.sans(size: 14)
         explanationLabel.numberOfLines = 0
         explanationLabel.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(explanationLabel)
+        columnStack.addArrangedSubview(explanationLabel)
 
         // Steps
         stepsStack.axis = .vertical
         stepsStack.spacing = 6
         stepsStack.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(stepsStack)
+        columnStack.addArrangedSubview(stepsStack)
 
         let steps = [
             L("cookieLogin.step1", "Onboarding"),
@@ -115,7 +142,7 @@ final class CookieLoginViewController: UIViewController {
         sessionKeyTextField.rightViewMode = .always
         sessionKeyTextField.translatesAutoresizingMaskIntoConstraints = false
         sessionKeyTextField.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        content.addSubview(sessionKeyTextField)
+        columnStack.addArrangedSubview(sessionKeyTextField)
 
         showHideButton.setTitle(L("onboarding.apikey.show", "Onboarding"), for: .normal)
         showHideButton.titleLabel?.font = Fonts.sans(size: 13)
@@ -137,23 +164,23 @@ final class CookieLoginViewController: UIViewController {
         lastActiveOrgTextField.leftViewMode = .always
         lastActiveOrgTextField.translatesAutoresizingMaskIntoConstraints = false
         lastActiveOrgTextField.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        content.addSubview(lastActiveOrgTextField)
+        columnStack.addArrangedSubview(lastActiveOrgTextField)
 
         orgHintLabel.text = L("cookieLogin.org.hint", "Onboarding")
         orgHintLabel.font = Fonts.sans(size: 12)
         orgHintLabel.numberOfLines = 0
         orgHintLabel.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(orgHintLabel)
+        columnStack.addArrangedSubview(orgHintLabel)
 
         // Login button (pill)
         loginButton.setTitle(L("cookieLogin.login", "Onboarding"), for: .normal)
         loginButton.titleLabel?.font = Fonts.sans(size: 17, weight: .semibold)
         loginButton.layer.cornerRadius = 25
         loginButton.clipsToBounds = true
+        loginButton.translatesAutoresizingMaskIntoConstraints = false
         loginButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
         loginButton.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
-        loginButton.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(loginButton)
+        columnStack.addArrangedSubview(loginButton)
 
         spinner.hidesWhenStopped = true
         spinner.translatesAutoresizingMaskIntoConstraints = false
@@ -170,50 +197,14 @@ final class CookieLoginViewController: UIViewController {
         errorLabel.numberOfLines = 0
         errorLabel.isHidden = true
         errorLabel.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(errorLabel)
+        columnStack.addArrangedSubview(errorLabel)
 
         // Warning
         warningLabel.text = L("cookieLogin.warning", "Onboarding")
         warningLabel.font = Fonts.sans(size: 12)
         warningLabel.numberOfLines = 0
         warningLabel.translatesAutoresizingMaskIntoConstraints = false
-        content.addSubview(warningLabel)
-
-        // Layout
-        NSLayoutConstraint.activate([
-            explanationLabel.topAnchor.constraint(equalTo: content.topAnchor),
-            explanationLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            explanationLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-
-            stepsStack.topAnchor.constraint(equalTo: explanationLabel.bottomAnchor, constant: 16),
-            stepsStack.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            stepsStack.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-
-            sessionKeyTextField.topAnchor.constraint(equalTo: stepsStack.bottomAnchor, constant: 20),
-            sessionKeyTextField.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            sessionKeyTextField.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-
-            lastActiveOrgTextField.topAnchor.constraint(equalTo: sessionKeyTextField.bottomAnchor, constant: 12),
-            lastActiveOrgTextField.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            lastActiveOrgTextField.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-
-            orgHintLabel.topAnchor.constraint(equalTo: lastActiveOrgTextField.bottomAnchor, constant: 4),
-            orgHintLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            orgHintLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-
-            loginButton.topAnchor.constraint(equalTo: orgHintLabel.bottomAnchor, constant: 20),
-            loginButton.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            loginButton.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-
-            errorLabel.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 12),
-            errorLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            errorLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-
-            warningLabel.topAnchor.constraint(equalTo: errorLabel.bottomAnchor, constant: 16),
-            warningLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            warningLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            warningLabel.bottomAnchor.constraint(equalTo: content.bottomAnchor)
-        ])
+        columnStack.addArrangedSubview(warningLabel)
     }
 
     private func makeRightView() -> UIView {
@@ -232,6 +223,7 @@ final class CookieLoginViewController: UIViewController {
         view.backgroundColor = t.background
         scrollView.backgroundColor = t.background
         content.backgroundColor = t.background
+        columnStack.backgroundColor = .clear
 
         explanationLabel.textColor = t.textSecondary
         for case let l as UILabel in stepsStack.arrangedSubviews {
@@ -276,11 +268,19 @@ final class CookieLoginViewController: UIViewController {
         guard let info = notification.userInfo,
               let frameEnd = info[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
         let keyboardHeight = max(0, view.bounds.height - frameEnd.origin.y)
-        scrollView.contentInset.bottom = keyboardHeight + 16
-        scrollView.scrollIndicatorInsets.bottom = keyboardHeight + 16
+        scrollViewBottomConstraint?.constant = -keyboardHeight
+        view.layoutIfNeeded()
     }
 
     // MARK: - Actions
+
+    @objc private func closeTapped() {
+        if let nav = navigationController {
+            nav.dismiss(animated: true)
+        } else {
+            dismiss(animated: true)
+        }
+    }
 
     @objc func toggleShowHide() {
         sessionKeyTextField.isSecureTextEntry.toggle()
