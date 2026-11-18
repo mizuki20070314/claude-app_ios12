@@ -535,7 +535,7 @@ private final class SubscriptionController {
     private func startSSE() {
         guard !cancelled, !polling else { return }
         guard let org = orgId else {
-            startPolling()
+            fallbackToPolling()
             return
         }
         let config = URLSessionConfiguration.default
