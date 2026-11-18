@@ -6,6 +6,7 @@ final class AccountLoginViewController: UIViewController {
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
     private let loginButton = UIButton(type: .system)
+    private let browserLoginButton = UIButton(type: .system)
     private let spinner = UIActivityIndicatorView(style: .gray)
     private let statusLabel = UILabel()
 
@@ -43,6 +44,16 @@ final class AccountLoginViewController: UIViewController {
         loginButton.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
         loginButton.translatesAutoresizingMaskIntoConstraints = false
 
+        browserLoginButton.setTitle(L("onboarding.choice.browserLogin", "Onboarding"), for: .normal)
+        browserLoginButton.titleLabel?.font = Fonts.sans(size: 13)
+        browserLoginButton.addTarget(self, action: #selector(browserLoginTapped), for: .touchUpInside)
+        browserLoginButton.translatesAutoresizingMaskIntoConstraints = false
+        if #available(iOS 13.0, *) {
+            browserLoginButton.isHidden = false
+        } else {
+            browserLoginButton.isHidden = true
+        }
+
         spinner.hidesWhenStopped = true
         spinner.translatesAutoresizingMaskIntoConstraints = false
         loginButton.addSubview(spinner)
@@ -60,7 +71,7 @@ final class AccountLoginViewController: UIViewController {
         let content = UIView()
         content.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(content)
-        [titleLabel, subtitleLabel, loginButton, statusLabel].forEach { content.addSubview($0) }
+        [titleLabel, subtitleLabel, loginButton, browserLoginButton, statusLabel].forEach { content.addSubview($0) }
         NSLayoutConstraint.activate([
             content.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             content.centerYAnchor.constraint(equalTo: view.centerYAnchor),
@@ -80,7 +91,10 @@ final class AccountLoginViewController: UIViewController {
             loginButton.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             loginButton.trailingAnchor.constraint(equalTo: content.trailingAnchor),
 
-            statusLabel.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 12),
+            browserLoginButton.topAnchor.constraint(equalTo: loginButton.bottomAnchor, constant: 8),
+            browserLoginButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+
+            statusLabel.topAnchor.constraint(equalTo: browserLoginButton.bottomAnchor, constant: 12),
             statusLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             statusLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             statusLabel.bottomAnchor.constraint(equalTo: content.bottomAnchor)
@@ -94,6 +108,7 @@ final class AccountLoginViewController: UIViewController {
         subtitleLabel.textColor = t.textSecondary
         loginButton.backgroundColor = t.textPrimary
         loginButton.setTitleColor(t.background, for: .normal)
+        browserLoginButton.setTitleColor(t.accent, for: .normal)
         statusLabel.textColor = t.destructive
         spinner.style = t.isDark ? .white : .gray
     }
@@ -107,6 +122,19 @@ final class AccountLoginViewController: UIViewController {
     }
 
     @objc private func loginTapped() {
+        let vc = CookieLoginViewController()
+        vc.onSuccess = { [weak self] in
+            AppRouter.shared.finishOnboarding()
+        }
+        if let nav = navigationController {
+            nav.pushViewController(vc, animated: true)
+        } else {
+            let nav = ThemedNavigationController(rootViewController: vc)
+            present(nav, animated: true)
+        }
+    }
+
+    @objc private func browserLoginTapped() {
         setValidating(true)
         ClaudeAccountAuth.shared.startLogin(from: self) { [weak self] success, message in
             guard let self = self else { return }

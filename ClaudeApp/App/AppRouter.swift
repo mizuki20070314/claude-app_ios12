@@ -28,7 +28,7 @@ final class AppRouter {
         Theme.setMode(ThemeMode(rawValue: SettingsStore.shared.themeMode) ?? .system)
 
         let screen = AppRouter.screenshotScreen
-        if screen != nil && screen != "account_live" && screen != "account_history" && screen != "account_code" {
+        if screen != nil && screen != "account_live" && screen != "account_history" && screen != "account_code" && screen != "cookie_login" && screen != "cookie_login_live" {
             loadDemoData()
             if screen == "dark_chat" || screen == "dark_home" {
                 Theme.forcedDark = true
@@ -52,6 +52,10 @@ final class AppRouter {
             nav.setViewControllers([OnboardingViewController()], animated: false)
         } else if screen == "account_login" {
             nav.setViewControllers([AccountLoginViewController()], animated: false)
+        } else if screen == "cookie_login" {
+            nav.setViewControllers([CookieLoginViewController()], animated: false)
+        } else if screen == "cookie_login_live" {
+            nav.setViewControllers([CookieLoginViewController()], animated: false)
         } else if screen == nil && !self.isAuthenticatedForOnboarding() {
             nav.setViewControllers([OnboardingViewController()], animated: false)
         } else {
@@ -68,7 +72,7 @@ final class AppRouter {
     private func handleScreenshot(screen: String?) {
         guard let screen = screen else { return }
         switch screen {
-        case "onboarding", "account_login":
+        case "onboarding", "account_login", "cookie_login":
             break
         case "home", "dark_home":
             mainNav?.setViewControllers([ChatViewController(conversationId: nil, projectId: nil)], animated: false)
@@ -107,6 +111,8 @@ final class AppRouter {
             DispatchQueue.main.async { self.runAccountHistoryLive() }
         case "account_code":
             DispatchQueue.main.async { self.runAccountCodeLive() }
+        case "cookie_login_live":
+            DispatchQueue.main.async { self.runCookieLoginLive() }
         #endif
         default:
             break
@@ -275,6 +281,27 @@ final class AppRouter {
             for f in extraFiles {
                 try? data.write(to: dir.appendingPathComponent(f))
             }
+        }
+    }
+    
+    private func runCookieLoginLive() {
+        ClaudeAccountAuth.shared.logout()
+        let vc = CookieLoginViewController()
+        self.mainNav?.setViewControllers([vc], animated: false)
+        if let key = ProcessInfo.processInfo.environment["CLAUDE_DEBUG_SESSION_KEY"], !key.isEmpty {
+            vc.sessionKeyTextField.text = key
+        }
+        vc.onLoginResult = { [weak self] success, message in
+            guard let self = self else { return }
+            let loggedIn = (SettingsStore.shared.authMode == "claudeAccount" && ClaudeAccountAuth.shared.isLoggedIn) ? 1 : 0
+            let counts: [String: Int] = ["logged_in": loggedIn]
+            self.writeLiveResult(ok: success, error: message ?? "", stage: "cookie_login", counts: counts, extraFiles: [])
+            if success {
+                self.finishOnboarding()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            vc.loginTapped()
         }
     }
     #endif

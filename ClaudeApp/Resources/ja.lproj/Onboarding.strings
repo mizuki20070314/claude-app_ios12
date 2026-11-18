@@ -16,3 +16,16 @@
 "onboarding.choice.subtitle" = "Claude.ai アカウントまたは API キーでログインします。";
 "onboarding.choice.accountLogin" = "claude.ai アカウントでログイン";
 "onboarding.choice.useApiKey" = "API キーを使う";
+"onboarding.choice.browserLogin" = "ブラウザでログイン (iOS 13 以降)";
+
+"cookieLogin.title" = "Cookie でログイン";
+"cookieLogin.explanation" = "PC のブラウザで取得した claude.ai の sessionKey Cookie を貼り付けてログインします。";
+"cookieLogin.step1" = "1. PC のブラウザで claude.ai にログイン";
+"cookieLogin.step2" = "2. 開発者ツール (F12) → Application (Firefox は「ストレージ」) → Cookies → https://claude.ai";
+"cookieLogin.step3" = "3. sessionKey の値 (sk-ant-sid… で始まる) をコピー";
+"cookieLogin.step4" = "4. iPhone/iPod に転送 (ユニバーサルクリップボード、メモ、AirDrop など) して下に貼り付け";
+"cookieLogin.sessionKey.placeholder" = "sessionKey (sk-ant-...)";
+"cookieLogin.org.placeholder" = "lastActiveOrg (任意)";
+"cookieLogin.org.hint" = "空欄なら自動で選択されます。";
+"cookieLogin.login" = "ログイン";
+"cookieLogin.warning" = "sessionKey はパスワードと同等の情報です。他人に共有しないでください。この端末の Keychain にのみ保存されます。";

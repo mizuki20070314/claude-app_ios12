@@ -4,7 +4,7 @@ set -u
 
 APP_PATH="${APP_PATH:-build-sim/Build/Products/Debug-iphonesimulator/ClaudeApp.app}"
 OUTDIR="${OUTDIR:-screenshots}"
-SCREENS="${SCREENS:-onboarding account_login home chat sidebar models settings projects project_detail search artifact dark_chat dark_home code_sessions code_session}"
+SCREENS="${SCREENS:-onboarding account_login cookie_login home chat sidebar models settings projects project_detail search artifact dark_chat dark_home code_sessions code_session}"
 BUNDLE_ID="com.mizuki.claudeios12"
 WAIT="${WAIT:-5}"
 

@@ -311,6 +311,137 @@ final class ClaudeAccountAuth: NSObject {
         }
     }
 
+    // MARK: - Cookie login
+
+    func loginWithCookie(sessionKey rawSessionKey: String, lastActiveOrg rawOrg: String?, completion: @escaping (Bool, String?) -> Void) {
+        // Normalize input: trim, accept "sessionKey=..." prefix, drop trailing "; ...".
+        var value = rawSessionKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = value.lowercased()
+        if lower.hasPrefix("sessionkey=") {
+            value = String(value.dropFirst("sessionkey=".count))
+        }
+        if let semi = value.firstIndex(of: ";") {
+            value = String(value[..<semi])
+        }
+        value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !value.isEmpty else {
+            DispatchQueue.main.async {
+                completion(false, "sessionKey を入力してください。")
+            }
+            return
+        }
+
+        let hadSkPrefix = value.hasPrefix("sk-ant-")
+        let orgTrimmed = rawOrg?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let org = (orgTrimmed?.isEmpty == false) ? orgTrimmed : nil
+
+        let url = URL(string: "https://claude.ai/api/organizations")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        var cookie = "sessionKey=\(value)"
+        if let o = org, !o.isEmpty {
+            cookie += "; lastActiveOrg=\(o)"
+        }
+        request.setValue(cookie, forHTTPHeaderField: "Cookie")
+        request.httpShouldHandleCookies = false
+        request.timeoutInterval = 30
+
+        let task = URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+
+            var success = false
+            var message: String? = nil
+            var selectedOrg: String? = org
+
+            if let error = error {
+                let nsError = error as NSError
+                if nsError.code == NSURLErrorNotConnectedToInternet || nsError.code == NSURLErrorNetworkConnectionLost {
+                    message = "ネットワークに接続できません。"
+                } else {
+                    message = "ネットワークエラーが発生しました: \(nsError.localizedDescription)"
+                }
+            } else {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                if status == 200 {
+                    var orgs: [[String: Any]] = []
+                    if let data = data {
+                        if let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                            orgs = arr
+                        } else if let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            if let a = dict["organizations"] as? [[String: Any]] {
+                                orgs = a
+                            } else if let a = dict["data"] as? [[String: Any]] {
+                                orgs = a
+                            }
+                        }
+                    }
+
+                    if orgs.isEmpty {
+                        message = "Claude.ai からの応答を解析できませんでした。"
+                    } else {
+                        let ids = orgs.map { self.organizationId(from: $0) }
+                        if let given = org, !given.isEmpty, ids.contains(given) {
+                            selectedOrg = given
+                        } else {
+                            var chosen: String? = nil
+                            for o in orgs {
+                                if let caps = o["capabilities"] as? [String], caps.contains("chat") {
+                                    chosen = self.organizationId(from: o)
+                                    break
+                                }
+                                if let caps = o["capabilities"] as? [Any] {
+                                    let strs = caps.compactMap { $0 as? String }
+                                    if strs.contains("chat") {
+                                        chosen = self.organizationId(from: o)
+                                        break
+                                    }
+                                }
+                            }
+                            if chosen == nil || chosen?.isEmpty == true {
+                                chosen = orgs.first.map { self.organizationId(from: $0) }
+                            }
+                            if let c = chosen, !c.isEmpty {
+                                selectedOrg = c
+                            }
+                        }
+                        success = true
+                    }
+                } else if status == 401 || status == 403 {
+                    message = "Cookie が無効か期限切れです。PC のブラウザで claude.ai にログインし直して、新しい sessionKey を貼り付けてください。"
+                } else {
+                    message = "Claude.ai への接続に失敗しました (HTTP \(status))。"
+                }
+            }
+
+            if !success, !hadSkPrefix, let msg = message {
+                message = msg + " sessionKey は通常 sk-ant- で始まります。"
+            }
+
+            DispatchQueue.main.async {
+                if success {
+                    self.storeSession(sessionKey: value, lastActiveOrg: selectedOrg)
+                    SettingsStore.shared.authMode = "claudeAccount"
+                    completion(true, nil)
+                } else {
+                    completion(false, message)
+                }
+            }
+        }
+        task.resume()
+    }
+
+    private func organizationId(from dict: [String: Any]) -> String {
+        if let s = dict["uuid"] as? String, !s.isEmpty { return s }
+        if let s = dict["id"] as? String, !s.isEmpty { return s }
+        if let s = dict["organization_uuid"] as? String, !s.isEmpty { return s }
+        if let s = dict["organizationId"] as? String, !s.isEmpty { return s }
+        if let nested = dict["organization"] as? [String: Any] {
+            return organizationId(from: nested)
+        }
+        return ""
+    }
+
     // MARK: - Logout
 
     func logout() {

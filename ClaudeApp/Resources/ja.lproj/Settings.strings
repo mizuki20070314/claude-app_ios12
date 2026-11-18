@@ -64,4 +64,5 @@
 "settings.account.loggedIn" = "ログイン済み";
 "settings.account.loggedOut" = "未ログイン";
 "settings.account.loginClaude" = "claude.ai でログイン";
+"settings.account.updateCookie" = "Cookie を更新";
 "settings.account.logout" = "ログアウト";

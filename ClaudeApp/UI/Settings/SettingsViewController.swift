@@ -80,6 +80,22 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         dismiss(animated: true)
     }
 
+    // MARK: - Account rows
+
+    private enum AccountRow {
+        case authMode, status, cookie, webLogin, logout, apiKey
+    }
+
+    private func accountRows() -> [AccountRow] {
+        var rows: [AccountRow] = [.authMode, .status, .cookie]
+        if #available(iOS 13.0, *) {
+            rows.append(.webLogin)
+        }
+        rows.append(.logout)
+        rows.append(.apiKey)
+        return rows
+    }
+
     // MARK: - Table
 
     func numberOfSections(in tableView: UITableView) -> Int { 10 }
@@ -113,7 +129,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch section {
         case 0: return 1 // profile
-        case 1: return 5 // account/auth
+        case 1: return accountRows().count // account/auth
         case 2: return 1 // appearance
         case 3: return 4 // model
         case 4: return 1 // style
@@ -167,8 +183,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             return cell
 
         case 1:
-            switch indexPath.row {
-            case 0:
+            let rows = accountRows()
+            guard indexPath.row < rows.count else { return UITableViewCell() }
+            switch rows[indexPath.row] {
+            case .authMode:
                 let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
                 cell.backgroundColor = t.surface
                 cell.textLabel?.text = L("settings.account.authMode", "Settings")
@@ -177,7 +195,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.detailTextLabel?.textColor = t.textSecondary
                 cell.accessoryType = .disclosureIndicator
                 return cell
-            case 1:
+            case .status:
                 let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
                 cell.backgroundColor = t.surface
                 cell.textLabel?.text = L("settings.account.status", "Settings")
@@ -190,19 +208,29 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.detailTextLabel?.textColor = t.textSecondary
                 cell.selectionStyle = .none
                 return cell
-            case 2:
+            case .cookie:
                 let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
                 cell.backgroundColor = t.surface
-                cell.textLabel?.text = L("settings.account.loginClaude", "Settings")
+                if SettingsStore.shared.authMode == "claudeAccount" && ClaudeAccountAuth.shared.isLoggedIn {
+                    cell.textLabel?.text = L("settings.account.updateCookie", "Settings")
+                } else {
+                    cell.textLabel?.text = L("settings.account.loginClaude", "Settings")
+                }
                 cell.textLabel?.textColor = t.accent
                 return cell
-            case 3:
+            case .webLogin:
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                cell.backgroundColor = t.surface
+                cell.textLabel?.text = L("onboarding.choice.browserLogin", "Onboarding")
+                cell.textLabel?.textColor = t.accent
+                return cell
+            case .logout:
                 let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
                 cell.backgroundColor = t.surface
                 cell.textLabel?.text = L("settings.account.logout", "Settings")
                 cell.textLabel?.textColor = t.destructive
                 return cell
-            default:
+            case .apiKey:
                 let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
                 cell.backgroundColor = t.surface
                 cell.textLabel?.text = L("settings.account.apikey", "Settings")
@@ -385,11 +413,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case 0:
             editName()
         case 1:
-            switch indexPath.row {
-            case 1:
-                break
-            case 0:
-                // Login method picker
+            let rows = accountRows()
+            guard indexPath.row < rows.count else { break }
+            switch rows[indexPath.row] {
+            case .authMode:
                 let opts: [(String,String?)] = [
                     (L("settings.account.authMode.account", "Settings"), nil),
                     (L("settings.account.authMode.apiKey", "Settings"), nil)
@@ -400,7 +427,20 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                     SettingsStore.shared.authMode = raws[i]
                 }
                 pushOrPresent(vc)
-            case 2:
+            case .status:
+                break
+            case .cookie:
+                let vc = CookieLoginViewController()
+                vc.onSuccess = { [weak self] in
+                    self?.tableView.reloadData()
+                }
+                if let nav = navigationController {
+                    nav.pushViewController(vc, animated: true)
+                } else {
+                    let nav = ThemedNavigationController(rootViewController: vc)
+                    present(nav, animated: true)
+                }
+            case .webLogin:
                 ClaudeAccountAuth.shared.startLogin(from: self) { [weak self] success, message in
                     guard let self = self else { return }
                     if !success {
@@ -410,10 +450,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                     }
                     self.tableView.reloadData()
                 }
-            case 3:
+            case .logout:
                 ClaudeAccountAuth.shared.logout()
                 self.tableView.reloadData()
-            default:
+            case .apiKey:
                 push(ApiKeyViewController())
             }
         case 2:

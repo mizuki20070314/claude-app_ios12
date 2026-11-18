@@ -19,6 +19,7 @@ final class OnboardingViewController: UIViewController {
     private let choiceTitleLabel = UILabel()
     private let choiceSubtitleLabel = UILabel()
     private let accountLoginButton = UIButton(type: .system)
+    private let browserLoginButton = UIButton(type: .system)
     private let useApiKeyButton = UIButton(type: .system)
     private let accountLoginActivityIndicator = UIActivityIndicatorView(style: .gray)
     // API key
@@ -159,6 +160,17 @@ final class OnboardingViewController: UIViewController {
         accountLoginButton.addTarget(self, action: #selector(accountLoginTapped), for: .touchUpInside)
         accountLoginButton.translatesAutoresizingMaskIntoConstraints = false
         choice.addSubview(accountLoginButton)
+
+        browserLoginButton.setTitle(L("onboarding.choice.browserLogin", "Onboarding"), for: .normal)
+        browserLoginButton.titleLabel?.font = Fonts.sans(size: 13)
+        browserLoginButton.addTarget(self, action: #selector(browserLoginTapped), for: .touchUpInside)
+        browserLoginButton.translatesAutoresizingMaskIntoConstraints = false
+        choice.addSubview(browserLoginButton)
+        if #available(iOS 13.0, *) {
+            browserLoginButton.isHidden = false
+        } else {
+            browserLoginButton.isHidden = true
+        }
 
         useApiKeyButton.setTitle(L("onboarding.choice.useApiKey", "Onboarding"), for: .normal)
         useApiKeyButton.titleLabel?.font = Fonts.sans(size: 17, weight: .semibold)
@@ -334,7 +346,7 @@ final class OnboardingViewController: UIViewController {
             content.leadingAnchor.constraint(greaterThanOrEqualTo: page.leadingAnchor, constant: 24),
             content.trailingAnchor.constraint(lessThanOrEqualTo: page.trailingAnchor, constant: -24)
         ])
-        [choiceTitleLabel, choiceSubtitleLabel, accountLoginButton, useApiKeyButton].forEach { $0.removeFromSuperview(); content.addSubview($0) }
+        [choiceTitleLabel, choiceSubtitleLabel, accountLoginButton, browserLoginButton, useApiKeyButton].forEach { $0.removeFromSuperview(); content.addSubview($0) }
         NSLayoutConstraint.activate([
             choiceTitleLabel.topAnchor.constraint(equalTo: content.topAnchor),
             choiceTitleLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -348,7 +360,10 @@ final class OnboardingViewController: UIViewController {
             accountLoginButton.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             accountLoginButton.trailingAnchor.constraint(equalTo: content.trailingAnchor),
 
-            useApiKeyButton.topAnchor.constraint(equalTo: accountLoginButton.bottomAnchor, constant: 12),
+            browserLoginButton.topAnchor.constraint(equalTo: accountLoginButton.bottomAnchor, constant: 8),
+            browserLoginButton.centerXAnchor.constraint(equalTo: content.centerXAnchor),
+
+            useApiKeyButton.topAnchor.constraint(equalTo: browserLoginButton.bottomAnchor, constant: 12),
             useApiKeyButton.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             useApiKeyButton.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             useApiKeyButton.bottomAnchor.constraint(equalTo: content.bottomAnchor)
@@ -439,6 +454,7 @@ final class OnboardingViewController: UIViewController {
         choiceTitleLabel.textColor = t.textPrimary
         choiceSubtitleLabel.textColor = t.textSecondary
         stylePrimaryButton(accountLoginButton, theme: t)
+        browserLoginButton.setTitleColor(t.accent, for: .normal)
         styleSecondaryButton(useApiKeyButton, theme: t)
         useApiKeyButton.backgroundColor = t.surface
         useApiKeyButton.layer.borderWidth = 1
@@ -557,12 +573,24 @@ final class OnboardingViewController: UIViewController {
     }
 
     @objc private func accountLoginTapped() {
+        let vc = CookieLoginViewController()
+        vc.onSuccess = { [weak self] in
+            AppRouter.shared.finishOnboarding()
+        }
+        if let nav = navigationController {
+            nav.pushViewController(vc, animated: true)
+        } else {
+            let nav = ThemedNavigationController(rootViewController: vc)
+            present(nav, animated: true)
+        }
+    }
+
+    @objc private func browserLoginTapped() {
         setAccountValidating(true)
         ClaudeAccountAuth.shared.startLogin(from: self) { [weak self] success, message in
             guard let self = self else { return }
             self.setAccountValidating(false)
             if success {
-                // validate() already sets authMode = claudeAccount when both session + 200.
                 AppRouter.shared.finishOnboarding()
             } else {
                 let alert = UIAlertController(title: nil, message: message ?? "ログインに失敗しました。", preferredStyle: .alert)

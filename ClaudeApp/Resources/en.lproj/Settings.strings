@@ -64,4 +64,5 @@
 "settings.account.loggedIn" = "Signed in";
 "settings.account.loggedOut" = "Signed out";
 "settings.account.loginClaude" = "Sign in with claude.ai";
+"settings.account.updateCookie" = "Update cookie";
 "settings.account.logout" = "Sign out";

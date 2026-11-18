@@ -7,7 +7,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         #if DEBUG
-        ClaudeAccountAuth.applyDebugSessionFromEnvironment()
+        if AppRouter.screenshotScreen != "cookie_login_live" {
+            ClaudeAccountAuth.applyDebugSessionFromEnvironment()
+        }
         #endif
         Theme.setMode(ThemeMode(rawValue: SettingsStore.shared.themeMode) ?? .system)
         UISwitch.appearance().onTintColor = Theme.current.accent

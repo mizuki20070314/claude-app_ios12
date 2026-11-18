@@ -16,3 +16,16 @@
 "onboarding.choice.subtitle" = "Sign in with your Claude.ai account or an API key.";
 "onboarding.choice.accountLogin" = "Sign in with claude.ai account";
 "onboarding.choice.useApiKey" = "Use an API key";
+"onboarding.choice.browserLogin" = "Sign in in browser (iOS 13+)";
+
+"cookieLogin.title" = "Sign in with cookie";
+"cookieLogin.explanation" = "Paste the sessionKey cookie copied from claude.ai in a PC browser to sign in.";
+"cookieLogin.step1" = "1. Sign in to claude.ai in a PC browser";
+"cookieLogin.step2" = "2. DevTools (F12) → Application (Storage in Firefox) → Cookies → https://claude.ai";
+"cookieLogin.step3" = "3. Copy the sessionKey value (starts with sk-ant-sid…)";
+"cookieLogin.step4" = "4. Transfer to iPhone/iPod (Universal Clipboard, Notes, AirDrop, etc.) and paste below";
+"cookieLogin.sessionKey.placeholder" = "sessionKey (sk-ant-...)";
+"cookieLogin.org.placeholder" = "lastActiveOrg (optional)";
+"cookieLogin.org.hint" = "Left blank, an organization is chosen automatically.";
+"cookieLogin.login" = "Sign in";
+"cookieLogin.warning" = "sessionKey is equivalent to a password. Do not share it. It is stored only in this device's Keychain.";
