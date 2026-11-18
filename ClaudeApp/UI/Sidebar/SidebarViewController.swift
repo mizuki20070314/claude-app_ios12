@@ -2,8 +2,10 @@ import UIKit
 
 final class SidebarViewController: UIViewController {
     private let tableView = UITableView(frame: .zero, style: .plain)
+    private let refreshControl = UIRefreshControl()
     private let newChatButton = UIButton(type: .system)
     private var sections: [(title: String, items: [Conversation])] = []
+    private var lastSyncAt: Date? = nil
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -56,6 +58,10 @@ final class SidebarViewController: UIViewController {
         artItem.addTarget(self, action: #selector(artifactsTapped), for: .touchUpInside)
         navStack.addArrangedSubview(artItem)
 
+        let codeItem = makeNavItem(icon: .code, title: "Claude Code")
+        codeItem.addTarget(self, action: #selector(codeTapped), for: .touchUpInside)
+        navStack.addArrangedSubview(codeItem)
+
         // Table view
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.backgroundColor = .clear
@@ -64,6 +70,8 @@ final class SidebarViewController: UIViewController {
         tableView.delegate = self
         tableView.rowHeight = 44
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        refreshControl.addTarget(self, action: #selector(refreshPulled), for: .valueChanged)
+        tableView.refreshControl = refreshControl
         view.addSubview(tableView)
 
         let lp = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress(_:)))
@@ -148,6 +156,7 @@ final class SidebarViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(dataChanged), name: Notification.Name("ConversationStore.didChange"), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(settingsChanged), name: Notification.Name("SettingsStore.didChange"), object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: Theme.didChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(historyDidSync), name: Notification.Name("ClaudeHistoryService.didSync"), object: nil)
 
         reloadData()
     }
@@ -191,8 +200,67 @@ final class SidebarViewController: UIViewController {
         return img.withRenderingMode(.alwaysOriginal)
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        syncIfNeeded(force: false)
+        updateSyncFooter()
+    }
+
     @objc private func dataChanged() { reloadData() }
     @objc private func settingsChanged() { reloadData() }
+
+    @objc private func historyDidSync() {
+        reloadData()
+        updateSyncFooter()
+    }
+
+    @objc private func refreshPulled() {
+        syncIfNeeded(force: true)
+    }
+
+    private var isAccountMode: Bool {
+        return SettingsStore.shared.authMode == "claudeAccount" && ClaudeAccountAuth.shared.isLoggedIn
+    }
+
+    private func syncIfNeeded(force: Bool) {
+        guard isAccountMode else {
+            refreshControl.endRefreshing()
+            return
+        }
+        if !force, let last = lastSyncAt, Date().timeIntervalSince(last) < 60 {
+            refreshControl.endRefreshing()
+            return
+        }
+        lastSyncAt = Date()
+        updateSyncFooter()
+        ClaudeHistoryService.shared.syncRecents(maxPages: 3) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.refreshControl.endRefreshing()
+                self?.updateSyncFooter()
+                self?.reloadData()
+            }
+        }
+    }
+
+    private func updateSyncFooter() {
+        if isAccountMode && ClaudeHistoryService.shared.isSyncing {
+            let v = UIView(frame: CGRect(x: 0, y: 0, width: tableView.bounds.width, height: 28))
+            let l = UILabel()
+            l.text = "claude.ai と同期中…"
+            l.font = Fonts.sans(size: 12)
+            l.textColor = Theme.current.textSecondary
+            l.textAlignment = .center
+            l.translatesAutoresizingMaskIntoConstraints = false
+            v.addSubview(l)
+            NSLayoutConstraint.activate([
+                l.centerXAnchor.constraint(equalTo: v.centerXAnchor),
+                l.centerYAnchor.constraint(equalTo: v.centerYAnchor)
+            ])
+            tableView.tableFooterView = v
+        } else {
+            tableView.tableFooterView = UIView(frame: .zero)
+        }
+    }
     @objc private func themeChanged() {
         view.backgroundColor = Theme.current.sidebarBackground
         newChatButton.setImage(makePlusCircleImage(size: 28), for: .normal)
@@ -232,6 +300,7 @@ final class SidebarViewController: UIViewController {
         }
         sections = newSections
         tableView.reloadData()
+        updateSyncFooter()
     }
 
     @objc private func searchTapped() { AppRouter.shared.openSearch() }
@@ -239,6 +308,7 @@ final class SidebarViewController: UIViewController {
     @objc private func chatsTapped() { /* already here */ }
     @objc private func projectsTapped() { AppRouter.shared.openProjects() }
     @objc private func artifactsTapped() { AppRouter.shared.openArtifacts() }
+    @objc private func codeTapped() { AppRouter.shared.openCodeSessions() }
     @objc private func settingsTapped() { AppRouter.shared.openSettings() }
 
     private func conversation(at indexPath: IndexPath) -> Conversation? {

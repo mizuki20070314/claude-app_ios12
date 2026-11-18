@@ -123,6 +123,33 @@ enum DemoData {
         return projects
     }
 
+    static var codeSessions: [CodeSession] {
+        let now = Date()
+        var sessions: [CodeSession] = []
+        sessions.append(CodeSession(id: "demo-code-rc-running", title: "Refactor login flow", status: "active", statusBucket: nil, workerStatus: "running", connectionStatus: "connected", environmentKind: "bridge", origin: nil, model: "claude-sonnet-4", statusLine: "Running tests…", updatedAt: now.addingTimeInterval(-120), lastEventAt: now.addingTimeInterval(-60), unread: false))
+        sessions.append(CodeSession(id: "demo-code-rc-idle", title: "Fix CSS bug", status: "active", statusBucket: nil, workerStatus: "idle", connectionStatus: "disconnected", environmentKind: "bridge", origin: nil, model: "claude-sonnet-4", statusLine: nil, updatedAt: now.addingTimeInterval(-3600), lastEventAt: now.addingTimeInterval(-3600), unread: true))
+        sessions.append(CodeSession(id: "demo-code-cloud-1", title: "Add unit tests", status: "archived", statusBucket: "completed", workerStatus: "idle", connectionStatus: "disconnected", environmentKind: "cloud", origin: nil, model: "claude-sonnet-4", statusLine: "All tests passed", updatedAt: now.addingTimeInterval(-86400), lastEventAt: now.addingTimeInterval(-86400), unread: false))
+        sessions.append(CodeSession(id: "demo-code-cloud-2", title: "Update README", status: "archived", statusBucket: "completed", workerStatus: "idle", connectionStatus: "disconnected", environmentKind: "cloud", origin: nil, model: "claude-sonnet-4", statusLine: "Done", updatedAt: now.addingTimeInterval(-172800), lastEventAt: now.addingTimeInterval(-172800), unread: false))
+        return sessions
+    }
+
+    static var codeTranscript: [CodeTranscriptItem] {
+        let now = Date()
+        return [
+            .user(text: "List files in src", isSynthetic: false, date: now.addingTimeInterval(-300)),
+            .assistant(text: "Here are the files.", date: now.addingTimeInterval(-290)),
+            .thinking(text: "Need to inspect directory."),
+            .toolUse(id: "t1", name: "Bash", summary: "ls -la src"),
+            .toolResult(toolUseId: "t1", text: "file1.ts\nfile2.ts", isError: false),
+            .assistant(text: "Found 2 files. Let's read one.", date: now.addingTimeInterval(-280)),
+            .toolUse(id: "t2", name: "Read", summary: "src/file1.ts"),
+            .toolResult(toolUseId: "t2", text: "console.log('hi')", isError: false),
+            .toolUse(id: "t3", name: "Edit", summary: "src/file1.ts"),
+            .toolResult(toolUseId: "t3", text: "Permission denied", isError: true),
+            .assistant(text: "**Done.**", date: now.addingTimeInterval(-260))
+        ]
+    }
+
     private static func makeImageAttachment() -> Attachment {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 64, height: 64))
         let img = renderer.image { ctx in

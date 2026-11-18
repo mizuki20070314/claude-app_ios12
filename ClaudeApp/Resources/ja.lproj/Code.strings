@@ -1,0 +1,18 @@
+/* Code */
+"code.navTitle" = "Claude Code";
+"code.sessionsTitle" = "Claude Code";
+"code.section.remoteControl" = "リモートコントロール";
+"code.section.cloud" = "クラウド";
+"code.emptyAccount" = "claude.ai アカウントでログインすると表示されます";
+"code.footerNotice" = "このアプリでは表示のみ対応しています";
+"code.environment.remote" = "PC (リモートコントロール)";
+"code.environment.cloud" = "クラウド";
+"code.status.connected" = "接続中";
+"code.status.running" = "実行中";
+"code.status.requiresAction" = "要対応";
+"code.status.failed" = "失敗";
+"code.status.idle" = "アイドル";
+"code.status.completed" = "完了";
+"code.loading" = "読み込み中…";
+"code.error" = "読み込みに失敗しました";
+"code.retry" = "再試行";

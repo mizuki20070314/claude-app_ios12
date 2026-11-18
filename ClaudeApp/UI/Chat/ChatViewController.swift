@@ -263,14 +263,26 @@ final class ChatViewController: UIViewController {
         }
     }
 
+    // Remote loading state
+    private var remoteLoadingContainer: UIView?
+    private var remoteLoadingSpinner: UIActivityIndicatorView?
+    private var remoteErrorLabel: UILabel?
+    private var remoteRetryButton: UIButton?
+
     private func loadConversation(id: String) {
         if let c = ConversationStore.shared.conversation(id: id) {
             conversation = c
             messages = c.messages
             hasGeneratedTitle = !c.title.isEmpty && c.title != "新規チャット"
+            updateTitleView()
+
+            if c.origin == "claudeAi" && (c.remoteLoaded != true) {
+                showRemoteLoading(for: id)
+                return
+            }
+
             showEmptyState(messages.isEmpty)
             tableView.reloadData()
-            updateTitleView()
             if AppRouter.screenshotScreen != nil {
                 DispatchQueue.main.async { [weak self] in
                     self?.tableView.setContentOffset(.zero, animated: false)
@@ -281,6 +293,98 @@ final class ChatViewController: UIViewController {
                 }
             }
         }
+    }
+
+    private func showRemoteLoading(for id: String) {
+        messages = []
+        showEmptyState(false)
+        tableView.reloadData()
+
+        let container = UIView()
+        let spinner = UIActivityIndicatorView(style: Theme.current.isDark ? .white : .gray)
+        spinner.startAnimating()
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(spinner)
+        NSLayoutConstraint.activate([
+            spinner.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+        ])
+        tableView.backgroundView = container
+        remoteLoadingContainer = container
+        remoteLoadingSpinner = spinner
+
+        ClaudeHistoryService.shared.loadConversation(id: id) { [weak self] result in
+            guard let self = self else { return }
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let conv):
+                    self.hideRemoteLoadingViews()
+                    self.conversation = conv
+                    self.messages = conv.messages
+                    self.hasGeneratedTitle = !conv.title.isEmpty && conv.title != "新規チャット"
+                    self.showEmptyState(self.messages.isEmpty)
+                    self.tableView.reloadData()
+                    self.updateTitleView()
+                    if AppRouter.screenshotScreen != nil {
+                        self.tableView.setContentOffset(.zero, animated: false)
+                    } else {
+                        self.scrollToBottom(animated: false)
+                    }
+                case .failure(let err):
+                    self.showRemoteError(err, for: id)
+                }
+            }
+        }
+    }
+
+    private func hideRemoteLoadingViews() {
+        tableView.backgroundView = nil
+        remoteLoadingContainer = nil
+        remoteLoadingSpinner = nil
+        remoteErrorLabel = nil
+        remoteRetryButton = nil
+    }
+
+    private func showRemoteError(_ error: Error, for id: String) {
+        tableView.backgroundView = nil
+        let container = UIView()
+
+        let label = UILabel()
+        label.text = error.localizedDescription
+        label.font = Fonts.sans(size: 14)
+        label.textColor = Theme.current.destructive
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(label)
+
+        let btn = UIButton(type: .system)
+        btn.setTitle(L("chat.retry", "Chat"), for: .normal)
+        btn.setTitleColor(Theme.current.accent, for: .normal)
+        btn.translatesAutoresizingMaskIntoConstraints = false
+        btn.addTarget(self, action: #selector(remoteRetryTapped), for: .touchUpInside)
+        container.addSubview(btn)
+
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: container.centerYAnchor, constant: -16),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: container.leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -24),
+
+            btn.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 12),
+            btn.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+        ])
+
+        tableView.backgroundView = container
+        remoteLoadingContainer = container
+        remoteErrorLabel = label
+        remoteRetryButton = btn
+    }
+
+    @objc private func remoteRetryTapped() {
+        guard let id = conversation?.id else { return }
+        hideRemoteLoadingViews()
+        showRemoteLoading(for: id)
     }
 
     // MARK: - Theme
@@ -391,6 +495,10 @@ final class ChatViewController: UIViewController {
                 var c = self.conversation!
                 c.messages = self.messages
                 c.updatedAt = Date()
+                if SettingsStore.shared.authMode == "claudeAccount" && ClaudeAccountAuth.shared.isLoggedIn && isNewConversation {
+                    c.origin = "claudeAi"
+                    c.remoteLoaded = true
+                }
                 self.conversation = c
                 ConversationStore.shared.save(c)
                 self.updateTitleView()

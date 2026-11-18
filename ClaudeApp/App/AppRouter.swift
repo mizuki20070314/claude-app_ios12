@@ -28,7 +28,7 @@ final class AppRouter {
         Theme.setMode(ThemeMode(rawValue: SettingsStore.shared.themeMode) ?? .system)
 
         let screen = AppRouter.screenshotScreen
-        if screen != nil && screen != "account_live" {
+        if screen != nil && screen != "account_live" && screen != "account_history" && screen != "account_code" {
             loadDemoData()
             if screen == "dark_chat" || screen == "dark_home" {
                 Theme.forcedDark = true
@@ -96,6 +96,18 @@ final class AppRouter {
             mainNav?.pushViewController(vc, animated: false)
         case "account_live":
             mainNav?.setViewControllers([ChatViewController(conversationId: nil, projectId: nil)], animated: false)
+        case "code_sessions":
+            mainNav?.setViewControllers([CodeSessionsListViewController()], animated: false)
+        case "code_session":
+            if let s = DemoData.codeSessions.first(where: { $0.isRemoteControl }) ?? DemoData.codeSessions.first {
+                openCodeSession(s)
+            }
+        #if DEBUG
+        case "account_history":
+            DispatchQueue.main.async { self.runAccountHistoryLive() }
+        case "account_code":
+            DispatchQueue.main.async { self.runAccountCodeLive() }
+        #endif
         default:
             break
         }
@@ -149,6 +161,112 @@ final class AppRouter {
         mainNav?.setViewControllers([vc], animated: true)
         closeSidebar()
     }
+
+    func openCodeSessions() {
+        let vc = CodeSessionsListViewController()
+        mainNav?.setViewControllers([vc], animated: true)
+        closeSidebar()
+    }
+
+    func openCodeSession(_ session: CodeSession) {
+        let vc = CodeSessionViewController(session: session)
+        if let nav = mainNav {
+            if nav.viewControllers.isEmpty {
+                nav.setViewControllers([vc], animated: false)
+            } else {
+                nav.pushViewController(vc, animated: true)
+            }
+        }
+        closeSidebar()
+    }
+
+    #if DEBUG
+    private func runAccountHistoryLive() {
+        var stage = "sync"
+        var error: String? = nil
+        var counts: [String: Int] = ["conversations": 0, "messages": 0]
+        ClaudeHistoryService.shared.syncRecents(maxPages: 3) { err in
+            DispatchQueue.main.async {
+                if let err = err {
+                    error = err.localizedDescription
+                    self.writeLiveResult(ok: false, error: error ?? "", stage: "sync", counts: counts, extraFiles: [])
+                    return
+                }
+                self.rootViewController?.openSidebar(animated: false)
+                counts["conversations"] = ConversationStore.shared.allConversations.filter { $0.origin == "claudeAi" }.count
+
+                let remotes = ConversationStore.shared.allConversations.filter { $0.origin == "claudeAi" }
+                guard let newest = remotes.sorted(by: { $0.updatedAt > $1.updatedAt }).first else {
+                    self.writeLiveResult(ok: true, error: "", stage: "sync", counts: counts, extraFiles: [])
+                    return
+                }
+                stage = "load"
+                ClaudeHistoryService.shared.loadConversation(id: newest.id) { result in
+                    DispatchQueue.main.async {
+                        switch result {
+                        case .success(let conv):
+                            counts["conversations"] = ConversationStore.shared.allConversations.filter { $0.origin == "claudeAi" }.count
+                            counts["messages"] = conv.messages.count
+                            self.currentConversationId = conv.id
+                            let vc = ChatViewController(conversationId: conv.id, projectId: nil)
+                            self.mainNav?.setViewControllers([vc], animated: false)
+                            self.writeLiveResult(ok: true, error: "", stage: "load", counts: counts, extraFiles: [])
+                        case .failure(let e):
+                            error = e.localizedDescription
+                            counts["messages"] = 0
+                            self.writeLiveResult(ok: false, error: error ?? "", stage: "load", counts: counts, extraFiles: [])
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func runAccountCodeLive() {
+        ClaudeCodeService.shared.listSessions { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .failure(let e):
+                    let counts: [String: Int] = ["sessions": 0, "remote_control": 0, "items": 0]
+                    self.writeLiveResult(ok: false, error: e.localizedDescription, stage: "list", counts: counts, extraFiles: ["account_code_result.json"])
+                case .success(let (sessions, _)):
+                    let rc = sessions.filter { $0.isRemoteControl }.count
+                    let first = sessions.first(where: { $0.isRemoteControl }) ?? sessions.first
+                    guard let s = first else {
+                        self.openCodeSessions()
+                        let counts: [String: Int] = ["sessions": sessions.count, "remote_control": rc, "items": 0]
+                        self.writeLiveResult(ok: true, error: "", stage: "list", counts: counts, extraFiles: ["account_code_result.json"])
+                        return
+                    }
+                    ClaudeCodeService.shared.loadTranscript(sessionId: s.id) { res in
+                        DispatchQueue.main.async {
+                            switch res {
+                            case .failure(let e):
+                                let counts: [String: Int] = ["sessions": sessions.count, "remote_control": rc, "items": 0]
+                                self.writeLiveResult(ok: false, error: e.localizedDescription, stage: "load", counts: counts, extraFiles: ["account_code_result.json"])
+                            case .success(let (items, _)):
+                                self.openCodeSession(s)
+                                let counts: [String: Int] = ["sessions": sessions.count, "remote_control": rc, "items": items.count]
+                                self.writeLiveResult(ok: true, error: "", stage: "load", counts: counts, extraFiles: ["account_code_result.json"])
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func writeLiveResult(ok: Bool, error: String, stage: String, counts: [String: Int], extraFiles: [String]) {
+        let dict: [String: Any] = ["ok": ok, "error": error, "stage": stage, "counts": counts]
+        guard let data = try? JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted]) else { return }
+        if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            try? data.write(to: dir.appendingPathComponent("account_live_result.json"))
+            for f in extraFiles {
+                try? data.write(to: dir.appendingPathComponent(f))
+            }
+        }
+    }
+    #endif
 
     func toggleSidebar() {
         rootViewController?.toggleSidebar()

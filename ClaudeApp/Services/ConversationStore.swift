@@ -83,6 +83,39 @@ final class ConversationStore {
         }
     }
 
+    func isRemote(_ c: Conversation) -> Bool {
+        return c.origin == "claudeAi"
+    }
+
+    func mergeRemote(_ items: [Conversation]) {
+        queue.sync {
+            for item in items {
+                guard item.origin == "claudeAi" else { continue }
+                if var existing = convMap[item.id] {
+                    existing.title = item.title
+                    existing.updatedAt = item.updatedAt
+                    existing.isStarred = item.isStarred
+                    existing.model = item.model
+                    existing.origin = "claudeAi"
+                    // preserve messages, remoteLoaded, createdAt, projectId
+                    convMap[item.id] = existing
+                    if !demoMode { persist(existing) }
+                } else {
+                    var c = item
+                    c.origin = c.origin ?? "claudeAi"
+                    convMap[c.id] = c
+                    if !demoMode { persist(c) }
+                }
+            }
+            if !demoMode && !items.isEmpty { writeIndex() }
+        }
+        if !items.isEmpty {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: self.changeName, object: self)
+            }
+        }
+    }
+
     func search(query: String) -> [Conversation] {
         let q = query.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
         guard !q.isEmpty else { return allConversations }

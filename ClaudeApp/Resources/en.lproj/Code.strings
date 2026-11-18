@@ -1,0 +1,18 @@
+/* Code */
+"code.navTitle" = "Claude Code";
+"code.sessionsTitle" = "Claude Code";
+"code.section.remoteControl" = "Remote Control";
+"code.section.cloud" = "Cloud";
+"code.emptyAccount" = "Sign in with your claude.ai account to view sessions.";
+"code.footerNotice" = "View only in this app.";
+"code.environment.remote" = "PC (Remote Control)";
+"code.environment.cloud" = "Cloud";
+"code.status.connected" = "Connected";
+"code.status.running" = "Running";
+"code.status.requiresAction" = "Needs attention";
+"code.status.failed" = "Failed";
+"code.status.idle" = "Idle";
+"code.status.completed" = "Completed";
+"code.loading" = "Loading…";
+"code.error" = "Failed to load";
+"code.retry" = "Retry";

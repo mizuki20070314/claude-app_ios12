@@ -87,33 +87,54 @@ jobs:
           xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b >/dev/null 2>&1
           xcrun simctl status_bar "$UDID" override --time 9:41 >/dev/null 2>&1 || true
           xcrun simctl install "$UDID" "$APP"
-          xcrun simctl launch "$UDID" "$BID" -screenshot "${{ inputs.app_screen }}" -AppleLanguages "(ja)" -AppleLocale ja_JP
-          DATA=$(xcrun simctl get_app_container "$UDID" "$BID" data)
-          RES="$DATA/Documents/account_live_result.json"
-          for i in $(seq 1 36); do
-            sleep 5
-            if [ $((i % 3)) -eq 0 ]; then xcrun simctl io "$UDID" screenshot "live/progress_$i.png" >/dev/null 2>&1; fi
-            if [ -f "$RES" ]; then echo "result after $((i*5))s"; break; fi
+          DATA=""
+          for SCREEN in $(echo "${{ inputs.app_screen }}" | tr ',' ' '); do
+            echo "=== screen: $SCREEN"
+            xcrun simctl terminate "$UDID" "$BID" >/dev/null 2>&1 || true
+            [ -n "$DATA" ] && rm -f "$DATA/Documents/account_live_result.json"
+            xcrun simctl launch "$UDID" "$BID" -screenshot "$SCREEN" -AppleLanguages "(ja)" -AppleLocale ja_JP >/dev/null
+            DATA=$(xcrun simctl get_app_container "$UDID" "$BID" data)
+            RES="$DATA/Documents/account_live_result.json"
+            rm -f "$RES"
+            for i in $(seq 1 36); do
+              sleep 5
+              if [ $((i % 4)) -eq 0 ]; then xcrun simctl io "$UDID" screenshot "live/${SCREEN}_progress_$i.png" >/dev/null 2>&1; fi
+              if [ -f "$RES" ]; then echo "result after $((i*5))s"; break; fi
+            done
+            sleep 6
+            xcrun simctl io "$UDID" screenshot "live/${SCREEN}_final.png"
+            echo "app diag: $(cat "$DATA/Documents/account_live_diag.json" 2>/dev/null || echo 'none')"
+            if [ -f "$RES" ]; then cp "$RES" "live/result_${SCREEN}.json"; else echo '{"ok": false, "error": "no result file (timeout)"}' > "live/result_${SCREEN}.json"; fi
+            python3 -I -c 'import json,sys;r=json.load(open(sys.argv[1]));print("app result:", {k:r.get(k) for k in ("ok","stage","error","counts")})' "live/result_${SCREEN}.json"
           done
-          sleep 2
-          xcrun simctl io "$UDID" screenshot live/final.png
-          echo "app diag: $(cat "$DATA/Documents/account_live_diag.json" 2>/dev/null || echo 'none')"
-          cp "$RES" live/account_live_result.json 2>/dev/null || echo '{"ok": false, "error": "no result file (timeout)"}' > live/account_live_result.json
-          find ~/Library/Logs/DiagnosticReports -name 'ClaudeApp*' -exec sh -c 'echo "=== CRASH $1"; head -60 "$1"' _ {} \; 2>/dev/null || true
-      - name: Report and clean up test conversation
+          find ~/Library/Logs/DiagnosticReports -name 'ClaudeApp*' -exec sh -c 'echo "=== CRASH $1"; head -80 "$1"' _ {} \; 2>/dev/null || true
+      - name: Clean up test conversation (account_live のみ)
         if: always()
         env:
           CLAUDE_SESSION_KEY: ${{ secrets.CLAUDE_SESSION_KEY }}
           CLAUDE_LAST_ACTIVE_ORG: ${{ secrets.CLAUDE_LAST_ACTIVE_ORG }}
         run: |
-          python3 -I scripts/account_cleanup.py live/account_live_result.json
-          rm -f live/account_live_result.json
-      - name: Upload screenshots
+          if [ -f live/result_account_live.json ]; then python3 -I scripts/account_cleanup.py live/result_account_live.json; fi
+          rm -f live/result_*.json
+      - name: Encrypt screenshots (実データを含むため公開鍵で暗号化。復号鍵はリポジトリ外)
+        if: always()
+        run: |
+          set -e
+          OSSL="$(brew --prefix openssl@3 2>/dev/null)/bin/openssl"; [ -x "$OSSL" ] || OSSL=openssl; "$OSSL" version
+          mkdir -p enc
+          tar -czf live.tgz live
+          KEY=$("$OSSL" rand -hex 32); IV=$("$OSSL" rand -hex 16)
+          "$OSSL" enc -aes-256-cbc -K "$KEY" -iv "$IV" -in live.tgz -out enc/live.tgz.enc
+          printf '%s:%s' "$KEY" "$IV" | "$OSSL" pkeyutl -encrypt -pubin -inkey scripts/debug_pubkey.pem \
+            -pkeyopt rsa_padding_mode:oaep -out enc/key.bin
+          rm -rf live live.tgz
+      - name: Upload encrypted screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: account-live-screens
-          path: live/
+          name: account-live-encrypted
+          path: enc/
+          retention-days: 3
       - name: Print build errors
         if: failure()
         run: grep -E "error:" build-sim.log | head -100 || true

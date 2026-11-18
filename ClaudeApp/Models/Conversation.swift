@@ -9,8 +9,12 @@ struct Conversation: Codable, Identifiable {
     var projectId: String?
     var model: String
     var messages: [Message]
+    var origin: String?          // nil/"local" = ローカル, "claudeAi" = サーバー
+    var remoteLoaded: Bool?      // メッセージ本文を取得済みか
 
-    init(id: String = UUID().uuidString, title: String = "New Chat", createdAt: Date = Date(), updatedAt: Date = Date(), isStarred: Bool = false, projectId: String? = nil, model: String = ModelOption.default.id, messages: [Message] = []) {
+    var isRemote: Bool { origin == "claudeAi" }
+
+    init(id: String = UUID().uuidString, title: String = "New Chat", createdAt: Date = Date(), updatedAt: Date = Date(), isStarred: Bool = false, projectId: String? = nil, model: String = ModelOption.default.id, messages: [Message] = [], origin: String? = nil, remoteLoaded: Bool? = nil) {
         self.id = id
         self.title = title
         self.createdAt = createdAt
@@ -19,5 +23,7 @@ struct Conversation: Codable, Identifiable {
         self.projectId = projectId
         self.model = model
         self.messages = messages
+        self.origin = origin
+        self.remoteLoaded = remoteLoaded
     }
 }
