@@ -39,7 +39,10 @@ def shape(obj, key=None, depth=0, max_depth=6):
         return f"{pad}…"
     if isinstance(obj, dict):
         lines = []
-        for k in sorted(obj.keys()):
+        dynamic = [k for k in obj.keys() if re.search(r"[0-9a-f]{8}-[0-9a-f]{4}", k) or len(k) > 48]
+        if dynamic:
+            lines.append(f"{pad}<{len(dynamic)} dynamic keys (ID を含むため非表示)>")
+        for k in sorted(k for k in obj.keys() if k not in dynamic):
             v = obj[k]
             if isinstance(v, (dict, list)):
                 lines.append(f"{pad}{k}: {type(v).__name__}" + (f"[{len(v)}]" if isinstance(v, list) else ""))
