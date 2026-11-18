@@ -18,6 +18,10 @@ on:
         description: "モデルID (空なら app_start から取得した先頭)"
         type: string
         default: ""
+      efforts:
+        description: "送信テストで試す effort 値 (',' 区切り)"
+        type: string
+        default: "__invalid__"
       probe_paths:
         description: "構造だけ表示する API ('|' 区切り, 例 'GET /organizations/{org}/recents')"
         type: string
@@ -46,6 +50,7 @@ jobs:
           CLAUDE_LAST_ACTIVE_ORG: ${{ secrets.CLAUDE_LAST_ACTIVE_ORG }}
           PROBE_COMPLETION: ${{ inputs.completion && '1' || '0' }}
           PROBE_MODEL: ${{ inputs.model }}
+          PROBE_EFFORTS: ${{ inputs.efforts }}
         run: python3 -I scripts/account_probe.py
       - name: Shape probe
         if: ${{ inputs.probe_paths != '' }}

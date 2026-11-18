@@ -21,7 +21,7 @@ SESSION = os.environ.get("CLAUDE_SESSION_KEY", "").strip()
 ORG_HINT = os.environ.get("CLAUDE_LAST_ACTIVE_ORG", "").strip()
 PATHS = [p.strip() for p in re.split(r"[\n|]", os.environ.get("PROBE_PATHS", "")) if p.strip()]
 ENUM_KEYS = {"kind", "type", "sender", "role", "status", "worker_status", "section", "surface", "stop_reason",
-             "rendering_mode", "input_mode", "source", "state", "event", "subtype", "mode", "environment_kind",
+             "rendering_mode", "input_mode", "effort_level", "thinking_mode", "effort", "effortLevel", "source", "state", "event", "subtype", "mode", "environment_kind",
              "session_status", "connection_status", "event_type", "environment_kind", "status_bucket", "origin", "stop_reason", "subtype", "platform", "object", "has_more", "is_live", "needs_input",
              "unread", "is_starred", "is_temporary", "truncated", "name_kind", "category"}
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
@@ -82,6 +82,8 @@ def scalar(k, v):
         if UUID_RE.match(v):
             mask(v)
             return "uuid"
+        if k in ("id", "title") and re.match(r"^[a-z_]{1,20}$", v):
+            return repr(v)
         if k in ENUM_KEYS and len(v) <= 40 and re.match(r"^[A-Za-z0-9_.\-:]*$", v):
             return repr(v)
         return f"str(len={len(v)})"

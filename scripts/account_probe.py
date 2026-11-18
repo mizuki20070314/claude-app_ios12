@@ -209,6 +209,17 @@ def main():
             parent = results["3c"]["assistant_uuid"] or parent
             body = app_body("What is 17*23? Answer with just the number.", chat, model, new=False, parent=parent, thinking="extended")
             results["3d"] = run_completion("3d. thinking_mode=extended", org, chat, body)
+            # 3g. effort の許容値確認 (不正値を送ると 400 で許容値が返る)
+            for eff in os.environ.get("PROBE_EFFORTS", "__invalid__").split(","):
+                eff = eff.strip()
+                if not eff:
+                    continue
+                body = app_body("Reply with exactly: E", chat, model, new=False, parent=parent, thinking=None)
+                body["effort"] = eff
+                key = "3g:" + eff
+                results[key] = run_completion("3g. effort=" + eff, org, chat, body)
+                if results[key]["assistant_uuid"]:
+                    parent = results[key]["assistant_uuid"]
             # 3e. 会話ツリーの確認 (メッセージ数・送信者の並び)
             log("\n== 3e. GET chat_conversations/{chat}?tree=True&rendering_mode=messages ==")
             st, h, r = request("GET", f"/organizations/{org}/chat_conversations/{chat}?tree=True&rendering_mode=messages&render_all_tools=true", org=org)
