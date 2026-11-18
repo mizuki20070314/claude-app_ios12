@@ -180,82 +180,174 @@ def main():
         log("\nPROBE_COMPLETION=0 のため送信テストは省略")
         return 0
 
-    # 3. completion (テスト会話を1件作成し、最後に削除する)
+    # 3. completion のバリエーション (テスト会話を作成し、最後に必ず削除する)
     model = MODEL_OVERRIDE or (model_ids[0] if model_ids else None)
     chat = str(uuid.uuid4())
-    req_id = str(uuid.uuid4())
+    created = False
+    results = {}
+    try:
+        # 3a. アプリと同じ body (新規会話)
+        body = app_body("Reply with exactly: OK", chat, model, new=True, parent=None, thinking=None)
+        res = run_completion("3a. app body / new chat", org, chat, body)
+        results["3a"] = res
+        created = res["status"] == 200
+        if not created:
+            body = app_body("Reply with exactly: OK", chat, model, new=True, parent=None, thinking=None, minimal=True)
+            res = run_completion("3a'. minimal body / new chat", org, chat, body)
+            results["3a'"] = res
+            created = res["status"] == 200
+        if created:
+            first_assistant = res["assistant_uuid"]
+            # 3b. 続き: parent_message_uuid = null
+            body = app_body("Reply with exactly: TWO", chat, model, new=False, parent=None, thinking=None)
+            results["3b"] = run_completion("3b. follow-up, parent=null", org, chat, body)
+            # 3c. 続き: parent = 直前のアシスタントメッセージ UUID
+            parent = results["3b"]["assistant_uuid"] or first_assistant
+            body = app_body("Reply with exactly: THREE", chat, model, new=False, parent=parent, thinking=None)
+            results["3c"] = run_completion(f"3c. follow-up, parent=assistant uuid (present={bool(parent)})", org, chat, body)
+            # 3d. 拡張思考
+            parent = results["3c"]["assistant_uuid"] or parent
+            body = app_body("What is 17*23? Answer with just the number.", chat, model, new=False, parent=parent, thinking="adaptive")
+            results["3d"] = run_completion("3d. thinking_mode=adaptive", org, chat, body)
+            # 3e. 会話ツリーの確認 (メッセージ数・送信者の並び)
+            log("\n== 3e. GET chat_conversations/{chat}?tree=True&rendering_mode=messages ==")
+            st, h, r = request("GET", f"/organizations/{org}/chat_conversations/{chat}?tree=True&rendering_mode=messages&render_all_tools=true", org=org)
+            raw = r.read()
+            log(f"status={st}")
+            if st == 200:
+                try:
+                    j = json.loads(raw)
+                    msgs = j.get("chat_messages") or []
+                    log(f"  keys={sorted(j.keys())}")
+                    log(f"  chat_messages={len(msgs)} senders={[m.get('sender') for m in msgs]}")
+                    log(f"  current_leaf present={bool(j.get('current_leaf_message_uuid'))}")
+                    if msgs:
+                        log(f"  message keys={sorted(msgs[0].keys())}")
+                except Exception as e:
+                    log(f"  parse error {e}")
+            # 3f. タイトル生成
+            log("\n== 3f. POST title ==")
+            st, h, r = request("POST", f"/organizations/{org}/chat_conversations/{chat}/title", org=org,
+                               body={"message_content": "Reply with exactly: OK", "recent_titles": []})
+            raw = r.read()
+            log(f"status={st}")
+            if st == 200:
+                try:
+                    j = json.loads(raw)
+                    log(f"  keys={sorted(j.keys())} title={str(j.get('title'))[:40]!r}")
+                except Exception:
+                    log("  non-JSON")
+            else:
+                log("  " + describe_error_body(raw, h.get("content-type")))
+    finally:
+        if created:
+            log("\n== 4. DELETE test conversation ==")
+            st, h, r = request("DELETE", f"/organizations/{org}/chat_conversations/{chat}", org=org)
+            r.read()
+            log(f"status={st}")
+    log("\n== summary ==")
+    for k, v in results.items():
+        log(f"  {k}: status={v['status']} reply={v['text'][:30]!r} thinking_chars={v['thinking_chars']} "
+            f"assistant_uuid={'yes' if v['assistant_uuid'] else 'no'} error={v['error']}")
+    return 0 if created else 3
+
+
+def app_body(prompt, chat, model, new, parent, thinking, minimal=False):
+    """ClaudeAccountClient.swift と同じ形の body を作る。"""
     body = {
-        "prompt": "Reply with exactly: OK",
+        "prompt": prompt,
         "timezone": "Asia/Tokyo",
         "attachments": [],
         "files": [],
         "rendering_mode": "messages",
         "input_mode": "text",
-        "create_conversation_params": {"uuid": chat, "name": "", **({"model": model} if model else {})},
-        "completion_request_id": req_id,
+        "completion_request_id": str(uuid.uuid4()),
     }
     if model:
         body["model"] = model
-    log(f"\n== 3. POST completion (new chat, model={model}) ==")
+    if new:
+        body["create_conversation_params"] = {"uuid": chat, "name": "", **({"model": model} if model else {})}
+    if parent:
+        body["parent_message_uuid"] = parent
+    if thinking:
+        body["thinking_mode"] = thinking
+    if not minimal:
+        body.setdefault("parent_message_uuid", None)
+        body.setdefault("create_conversation_params", None)
+        body["tools"] = []
+        body["effort"] = None
+        body.setdefault("thinking_mode", None)
+        body["turn_message_uuids"] = None
+        body["tool_allowlist"] = []
+        body["skip_completion_notification"] = False
+    return body
+
+
+def run_completion(label, org, chat, body):
+    log(f"\n== {label} ==")
     log(f"  body keys={sorted(body.keys())}")
     st, h, r = request("POST", f"/organizations/{org}/chat_conversations/{chat}/completion", org=org,
                        body=body, accept="text/event-stream", timeout=120)
-    log(f"status={st} {show_headers(h)}")
-    created = st == 200
+    log(f"  status={st} {show_headers(h)}")
+    res = {"status": st, "text": "", "thinking_chars": 0, "assistant_uuid": None, "error": None}
     if st != 200:
-        log("  " + describe_error_body(r.read(), h.get("content-type")))
-    else:
-        events, text, thinking_chars, buf = [], "", 0, b""
-        started = time.time()
-        while True:
-            chunk = r.read(1024)
-            if not chunk:
-                break
-            buf += chunk
-            while b"\n\n" in buf:
-                block, buf = buf.split(b"\n\n", 1)
-                ev, data = None, []
-                for line in block.decode("utf-8", "replace").splitlines():
-                    if line.startswith("event:"):
-                        ev = line[6:].strip()
-                    elif line.startswith("data:"):
-                        data.append(line[5:].lstrip())
-                payload = "\n".join(data)
+        res["error"] = describe_error_body(r.read(), h.get("content-type"))
+        log("  " + res["error"])
+        return res
+    events, buf, started = [], b"", time.time()
+    block_types = []
+    while True:
+        chunk = r.read(1024)
+        if not chunk:
+            break
+        buf += chunk
+        while b"\n\n" in buf:
+            block, buf = buf.split(b"\n\n", 1)
+            ev, data = None, []
+            for line in block.decode("utf-8", "replace").splitlines():
+                if line.startswith("event:"):
+                    ev = line[6:].strip()
+                elif line.startswith("data:"):
+                    data.append(line[5:].lstrip())
+            payload = "\n".join(data)
+            try:
+                j = json.loads(payload) if payload else None
+            except Exception:
                 j = None
-                try:
-                    j = json.loads(payload) if payload else None
-                except Exception:
-                    pass
-                etype = ev or (j.get("type") if isinstance(j, dict) else None) or "?"
-                events.append(etype)
-                if isinstance(j, dict):
-                    d = j.get("delta") if isinstance(j.get("delta"), dict) else {}
-                    if isinstance(d.get("text"), str):
-                        text += d["text"]
-                    if isinstance(d.get("thinking"), str):
-                        thinking_chars += len(d["thinking"])
-                    if etype == "error":
-                        err = j.get("error", {})
-                        log(f"  SSE error: type={err.get('type')} message={str(err.get('message'))[:200]}")
-            if time.time() - started > 110:
-                log("  (タイムアウトで打ち切り)")
-                break
-        compact = []
-        for e in events:
-            if compact and compact[-1][0] == e:
-                compact[-1][1] += 1
-            else:
-                compact.append([e, 1])
-        log("  events=" + " → ".join(f"{e}×{n}" if n > 1 else e for e, n in compact))
-        log(f"  reply text={text[:80]!r} (len={len(text)}) thinking_chars={thinking_chars}")
-
-    # 4. 後始末: 作成したテスト会話を削除
-    if created:
-        log("\n== 4. DELETE test conversation ==")
-        st, h, r = request("DELETE", f"/organizations/{org}/chat_conversations/{chat}", org=org)
-        r.read()
-        log(f"status={st}")
-    return 0 if created else 3
+            etype = ev or (j.get("type") if isinstance(j, dict) else None) or "?"
+            events.append(etype)
+            if not isinstance(j, dict):
+                continue
+            if etype == "message_start":
+                m = j.get("message") or {}
+                if isinstance(m, dict):
+                    log(f"  message_start.message keys={sorted(m.keys())}")
+                    res["assistant_uuid"] = m.get("uuid") or m.get("id")
+                    mask(res["assistant_uuid"])
+            if etype == "content_block_start":
+                cb = j.get("content_block") or {}
+                block_types.append(cb.get("type") if isinstance(cb, dict) else "?")
+            d = j.get("delta") if isinstance(j.get("delta"), dict) else {}
+            if isinstance(d.get("text"), str):
+                res["text"] += d["text"]
+            if isinstance(d.get("thinking"), str):
+                res["thinking_chars"] += len(d["thinking"])
+            if etype == "error":
+                err = j.get("error", {})
+                res["error"] = f"SSE {err.get('type')}: {str(err.get('message'))[:200]}"
+                log("  " + res["error"])
+        if time.time() - started > 110:
+            log("  (タイムアウトで打ち切り)")
+            break
+    compact = []
+    for e in events:
+        if compact and compact[-1][0] == e:
+            compact[-1][1] += 1
+        else:
+            compact.append([e, 1])
+    log("  events=" + " -> ".join(f"{e}x{n}" if n > 1 else e for e, n in compact))
+    log(f"  content blocks={block_types} reply={res['text'][:80]!r} thinking_chars={res['thinking_chars']}")
+    return res
 
 
 if __name__ == "__main__":
