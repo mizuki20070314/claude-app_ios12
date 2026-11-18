@@ -1,0 +1,32 @@
+name: Account debug
+
+# 手動実行のみ。claude.ai アカウントセッションでの疎通確認。
+# Secrets: CLAUDE_SESSION_KEY, CLAUDE_LAST_ACTIVE_ORG (値はログで自動マスクされる)
+on:
+  workflow_dispatch:
+    inputs:
+      completion:
+        description: "送信テスト (テスト会話を1件作成し、終了後に削除)"
+        type: boolean
+        default: true
+      model:
+        description: "モデルID (空なら app_start から取得した先頭)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe claude.ai session
+        env:
+          CLAUDE_SESSION_KEY: ${{ secrets.CLAUDE_SESSION_KEY }}
+          CLAUDE_LAST_ACTIVE_ORG: ${{ secrets.CLAUDE_LAST_ACTIVE_ORG }}
+          PROBE_COMPLETION: ${{ inputs.completion && '1' || '0' }}
+          PROBE_MODEL: ${{ inputs.model }}
+        run: python3 -I scripts/account_probe.py
