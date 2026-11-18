@@ -11,13 +11,14 @@ struct Message: Codable, Identifiable {
     var isError: Bool
     var feedback: Int?
     var model: String?
+    var serverUuid: String?
 
     enum Role: String, Codable {
         case user
         case assistant
     }
 
-    init(id: String = UUID().uuidString, role: Role, text: String = "", thinking: String? = nil, attachments: [Attachment] = [], createdAt: Date = Date(), isError: Bool = false, feedback: Int? = nil, model: String? = nil) {
+    init(id: String = UUID().uuidString, role: Role, text: String = "", thinking: String? = nil, attachments: [Attachment] = [], createdAt: Date = Date(), isError: Bool = false, feedback: Int? = nil, model: String? = nil, serverUuid: String? = nil) {
         self.id = id
         self.role = role
         self.text = text
@@ -27,6 +28,7 @@ struct Message: Codable, Identifiable {
         self.isError = isError
         self.feedback = feedback
         self.model = model
+        self.serverUuid = serverUuid
     }
 }
 

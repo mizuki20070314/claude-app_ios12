@@ -1,12 +1,17 @@
 name: Account debug
 
-# 手動実行のみ。claude.ai アカウントセッションでの疎通確認。
+# 手動実行のみ。claude.ai アカウントセッションでの疎通確認とアプリの実機相当テスト。
 # Secrets: CLAUDE_SESSION_KEY, CLAUDE_LAST_ACTIVE_ORG (値はログで自動マスクされる)
+# 公開リポジトリのため、ログ/成果物に個人情報を出さないこと。
 on:
   workflow_dispatch:
     inputs:
       completion:
-        description: "送信テスト (テスト会話を1件作成し、終了後に削除)"
+        description: "API 送信テスト (テスト会話を作成し、終了後に削除)"
+        type: boolean
+        default: true
+      app_test:
+        description: "シミュレータでアプリから実際に送信するテスト"
         type: boolean
         default: true
       model:
@@ -30,3 +35,63 @@ jobs:
           PROBE_COMPLETION: ${{ inputs.completion && '1' || '0' }}
           PROBE_MODEL: ${{ inputs.model }}
         run: python3 -I scripts/account_probe.py
+
+  app:
+    if: ${{ inputs.app_test }}
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Generate project
+        run: brew install xcodegen && xcodegen generate
+      - name: Simulator build (Debug)
+        run: |
+          set -o pipefail
+          xcodebuild -project ClaudeApp.xcodeproj -scheme ClaudeApp -configuration Debug -sdk iphonesimulator \
+            -derivedDataPath build-sim build 2>&1 | tee build-sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          test -d build-sim/Build/Products/Debug-iphonesimulator/ClaudeApp.app
+      - name: Live account test in simulator
+        env:
+          SIMCTL_CHILD_CLAUDE_DEBUG_SESSION_KEY: ${{ secrets.CLAUDE_SESSION_KEY }}
+          SIMCTL_CHILD_CLAUDE_DEBUG_LAST_ACTIVE_ORG: ${{ secrets.CLAUDE_LAST_ACTIVE_ORG }}
+        run: |
+          set -u
+          APP="$PWD/build-sim/Build/Products/Debug-iphonesimulator/ClaudeApp.app"
+          BID=com.mizuki.claudeios12
+          mkdir -p live
+          RT=$(xcrun simctl list runtimes -j | python3 -c 'import json,sys;rs=[r for r in json.load(sys.stdin)["runtimes"] if r.get("platform")=="iOS" and r.get("isAvailable") and r["version"].startswith("18")];rs.sort(key=lambda r:[int(x) for x in r["version"].split(".")]);print(rs[-1]["identifier"])')
+          UDID=$(xcrun simctl create LiveSE "iPhone SE (3rd generation)" "$RT" | tail -n1)
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b >/dev/null 2>&1
+          xcrun simctl status_bar "$UDID" override --time 9:41 >/dev/null 2>&1 || true
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" "$BID" -screenshot account_live -AppleLanguages "(ja)" -AppleLocale ja_JP
+          DATA=$(xcrun simctl get_app_container "$UDID" "$BID" data)
+          RES="$DATA/Documents/account_live_result.json"
+          for i in $(seq 1 36); do
+            sleep 5
+            if [ $((i % 3)) -eq 0 ]; then xcrun simctl io "$UDID" screenshot "live/progress_$i.png" >/dev/null 2>&1; fi
+            if [ -f "$RES" ]; then echo "result after $((i*5))s"; break; fi
+          done
+          sleep 2
+          xcrun simctl io "$UDID" screenshot live/final.png
+          cp "$RES" live/account_live_result.json 2>/dev/null || echo '{"ok": false, "error": "no result file (timeout)"}' > live/account_live_result.json
+          find ~/Library/Logs/DiagnosticReports -name 'ClaudeApp*' -exec sh -c 'echo "=== CRASH $1"; head -60 "$1"' _ {} \; 2>/dev/null || true
+      - name: Report and clean up test conversation
+        if: always()
+        env:
+          CLAUDE_SESSION_KEY: ${{ secrets.CLAUDE_SESSION_KEY }}
+          CLAUDE_LAST_ACTIVE_ORG: ${{ secrets.CLAUDE_LAST_ACTIVE_ORG }}
+        run: |
+          python3 -I scripts/account_cleanup.py live/account_live_result.json
+          rm -f live/account_live_result.json
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: account-live-screens
+          path: live/
+      - name: Print build errors
+        if: failure()
+        run: grep -E "error:" build-sim.log | head -100 || true

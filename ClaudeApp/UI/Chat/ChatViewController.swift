@@ -18,6 +18,11 @@ final class ChatViewController: UIViewController {
     private var lastTableUpdate: Date = .distantPast
     private var pendingTableUpdate: Bool = false
 
+    // account_live screenshot mode state
+    private var accountLiveStarted: Bool = false
+    private var accountLiveStep: Int = 0
+    private var accountLiveError: String? = nil
+
     init(conversationId: String?, projectId: String?) {
         self.conversationIdParam = conversationId
         self.projectIdParam = projectId
@@ -113,6 +118,15 @@ final class ChatViewController: UIViewController {
         super.viewDidLayoutSubviews()
         if composerBottomConstraint.constant == 0 {
             composerBottomConstraint.constant = -view.safeAreaInsets.bottom
+        }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if AppRouter.screenshotScreen == "account_live" && !accountLiveStarted {
+            accountLiveStarted = true
+            accountLiveStep = 1
+            send(text: "日本語で一言あいさつしてください。", attachments: [])
         }
     }
 
@@ -325,6 +339,7 @@ final class ChatViewController: UIViewController {
         conversation = conv
 
         let assistantIndex = messages.count - 1
+        let userIndex = messages.count - 2
         tableView.reloadData()
         scrollToBottom(animated: false)
 
@@ -378,6 +393,18 @@ final class ChatViewController: UIViewController {
                 self.conversation = c
                 ConversationStore.shared.save(c)
                 self.updateTitleView()
+
+                if AppRouter.screenshotScreen == "account_live" {
+                    if self.accountLiveStep == 1 {
+                        self.accountLiveStep = 2
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                            self?.send(text: "今の返事を英語に訳してください。", attachments: [])
+                        }
+                    } else if self.accountLiveStep == 2 {
+                        self.accountLiveStep = 3
+                        self.writeAccountLiveResult()
+                    }
+                }
 
                 // generate title after first exchange
                 if !self.hasGeneratedTitle {
@@ -438,7 +465,30 @@ final class ChatViewController: UIViewController {
                 if let cell = self.tableView.cellForRow(at: IndexPath(row: assistantIndex, section: 0)) as? AssistantMessageCell {
                     cell.setStreaming(false)
                 }
+
+                if AppRouter.screenshotScreen == "account_live" {
+                    self.accountLiveError = (error as NSError).localizedDescription
+                    if self.accountLiveStep == 1 || self.accountLiveStep == 2 {
+                        self.accountLiveStep = 3
+                        self.writeAccountLiveResult()
+                    }
+                }
+
                 self.finalTableUpdate()
+            },
+            onMessageStart: { [weak self] humanUuid, assistantUuid in
+                guard let self = self else { return }
+                if let hu = humanUuid, !hu.isEmpty, userIndex >= 0, userIndex < self.messages.count {
+                    self.messages[userIndex].serverUuid = hu
+                }
+                if let au = assistantUuid, !au.isEmpty, assistantIndex >= 0, assistantIndex < self.messages.count {
+                    self.messages[assistantIndex].serverUuid = au
+                }
+                if var c = self.conversation {
+                    c.messages = self.messages
+                    self.conversation = c
+                    ConversationStore.shared.save(c)
+                }
             }
         )
     }
@@ -535,6 +585,22 @@ final class ChatViewController: UIViewController {
     }
 
     // MARK: - Toast
+
+    private func writeAccountLiveResult() {
+        let chatId = self.conversation?.id ?? ""
+        let ok = (self.accountLiveError == nil)
+        let dict: [String: Any] = [
+            "chat_id": chatId,
+            "ok": ok,
+            "error": self.accountLiveError ?? ""
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted]) {
+            if let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let url = dir.appendingPathComponent("account_live_result.json")
+                try? data.write(to: url)
+            }
+        }
+    }
 
     private func showToast(_ text: String) {
         let label = UILabel()

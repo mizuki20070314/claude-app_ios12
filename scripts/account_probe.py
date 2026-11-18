@@ -207,8 +207,8 @@ def main():
             results["3c"] = run_completion(f"3c. follow-up, parent=assistant uuid (present={bool(parent)})", org, chat, body)
             # 3d. 拡張思考
             parent = results["3c"]["assistant_uuid"] or parent
-            body = app_body("What is 17*23? Answer with just the number.", chat, model, new=False, parent=parent, thinking="adaptive")
-            results["3d"] = run_completion("3d. thinking_mode=adaptive", org, chat, body)
+            body = app_body("What is 17*23? Answer with just the number.", chat, model, new=False, parent=parent, thinking="extended")
+            results["3d"] = run_completion("3d. thinking_mode=extended", org, chat, body)
             # 3e. 会話ツリーの確認 (メッセージ数・送信者の並び)
             log("\n== 3e. GET chat_conversations/{chat}?tree=True&rendering_mode=messages ==")
             st, h, r = request("GET", f"/organizations/{org}/chat_conversations/{chat}?tree=True&rendering_mode=messages&render_all_tools=true", org=org)

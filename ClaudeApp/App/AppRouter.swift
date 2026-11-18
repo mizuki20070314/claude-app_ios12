@@ -28,7 +28,7 @@ final class AppRouter {
         Theme.setMode(ThemeMode(rawValue: SettingsStore.shared.themeMode) ?? .system)
 
         let screen = AppRouter.screenshotScreen
-        if screen != nil {
+        if screen != nil && screen != "account_live" {
             loadDemoData()
             if screen == "dark_chat" || screen == "dark_home" {
                 Theme.forcedDark = true
@@ -94,6 +94,8 @@ final class AppRouter {
         case "artifact":
             let vc = ArtifactViewController(title: "Todo アプリ", language: "html", code: DemoData.sampleHTML)
             mainNav?.pushViewController(vc, animated: false)
+        case "account_live":
+            mainNav?.setViewControllers([ChatViewController(conversationId: nil, projectId: nil)], animated: false)
         default:
             break
         }

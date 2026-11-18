@@ -1,7 +1,6 @@
 import Foundation
 import UIKit
-import AuthenticationServices
-import SafariServices
+import WebKit
 
 enum ClaudeAccountAuthError: Error, LocalizedError {
     case accountChatUnsupported
@@ -28,14 +27,20 @@ final class ClaudeAccountAuth: NSObject {
 
     private let sessionKeyKey = "claudeSessionKey"
     private let lastActiveOrgKey = "claudeLastActiveOrg"
-    private let callbackScheme = "claudeios12"
-    private let callbackURL = "claudeios12://auth/callback"
-
-    private var currentWebSession: Any?
-    private var fallbackContainer: UIViewController?
-    private var isFallbackValidating = false
 
     private override init() { super.init() }
+
+    // MARK: - Debug hook
+
+    #if DEBUG
+    static func applyDebugSessionFromEnvironment() {
+        let env = ProcessInfo.processInfo.environment
+        if let key = env["CLAUDE_DEBUG_SESSION_KEY"], !key.isEmpty {
+            ClaudeAccountAuth.shared.storeSession(sessionKey: key, lastActiveOrg: env["CLAUDE_DEBUG_LAST_ACTIVE_ORG"])
+            SettingsStore.shared.authMode = "claudeAccount"
+        }
+    }
+    #endif
 
     // MARK: - Public state
 
@@ -54,6 +59,16 @@ final class ClaudeAccountAuth: NSObject {
     // Public storage helper for organization UUID (Keychain).
     func storeLastActiveOrg(_ org: String) {
         if !org.isEmpty {
+            _ = KeychainStore.shared.set(org, for: lastActiveOrgKey)
+        }
+    }
+
+    // Store a session obtained from the in-app WebView login.
+    func storeSession(sessionKey: String, lastActiveOrg: String?) {
+        if !sessionKey.isEmpty {
+            _ = KeychainStore.shared.set(sessionKey, for: sessionKeyKey)
+        }
+        if let org = lastActiveOrg, !org.isEmpty {
             _ = KeychainStore.shared.set(org, for: lastActiveOrgKey)
         }
     }
@@ -77,97 +92,15 @@ final class ClaudeAccountAuth: NSObject {
 
     // MARK: - Login
 
-    func startLogin(from viewController: UIViewController, completion: ((Bool, String?) -> Void)? = nil) {
-        let loginURL = URL(string: "https://claude.ai/login")!
-
-        if #available(iOS 12.0, *) {
-            let session = ASWebAuthenticationSession(url: loginURL, callbackURLScheme: callbackScheme) { [weak self] callbackURL, error in
-                guard let self = self else { return }
-                self.currentWebSession = nil
-                if let error = error as NSError? {
-                    if error.code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
-                        // Still try to validate in case cookies were set before cancel.
-                        self.validate { success, message in
-                            completion?(success, message)
-                        }
-                        return
-                    }
-                }
-                self.validate { success, message in
-                    completion?(success, message)
-                }
-            }
-            self.currentWebSession = session
-            if session.start() {
-                return
-            }
-            // Fall through to Safari fallback if start fails.
+    func startLogin(from presenter: UIViewController, completion: @escaping (Bool, String?) -> Void) {
+        let vc = ClaudeWebLoginViewController { success, message in
+            completion(success, message)
         }
-
-        presentSafariFallback(from: viewController, completion: completion)
-    }
-
-    private func presentSafariFallback(from viewController: UIViewController, completion: ((Bool, String?) -> Void)?) {
-        let loginURL = URL(string: "https://claude.ai/login")!
-        let container = UIViewController()
-        container.view.backgroundColor = .white
-
-        let safari = SFSafariViewController(url: loginURL)
-        safari.delegate = self
-
-        container.addChild(safari)
-        safari.view.translatesAutoresizingMaskIntoConstraints = false
-        container.view.addSubview(safari.view)
-        safari.didMove(toParent: container)
-
-        let button = UIButton(type: .system)
-        button.setTitle("ログイン完了", for: .normal)
-        button.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        container.view.addSubview(button)
-
-        NSLayoutConstraint.activate([
-            safari.view.topAnchor.constraint(equalTo: container.view.topAnchor),
-            safari.view.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
-            safari.view.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
-            safari.view.bottomAnchor.constraint(equalTo: button.topAnchor),
-
-            button.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
-            button.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
-            button.bottomAnchor.constraint(equalTo: container.view.safeAreaLayoutGuide.bottomAnchor),
-            button.heightAnchor.constraint(equalToConstant: 48)
-        ])
-
-        // Validate when the user taps "done"; SFSafariViewController cannot detect login completion.
-        button.addTarget(self, action: #selector(fallbackDoneTapped(_:)), for: .touchUpInside)
-
-        self.fallbackContainer = container
-        self.isFallbackValidating = false
-        self.fallbackCompletion = completion
-
-        if let nav = viewController.navigationController {
-            nav.present(container, animated: true)
-        } else {
-            viewController.present(container, animated: true)
+        let nav = UINavigationController(rootViewController: vc)
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            nav.modalPresentationStyle = .formSheet
         }
-    }
-
-    private var fallbackCompletion: ((Bool, String?) -> Void)?
-
-    @objc private func fallbackDoneTapped(_ sender: UIButton) {
-        guard !isFallbackValidating else { return }
-        isFallbackValidating = true
-        validate { [weak self] success, message in
-            guard let self = self else { return }
-            self.dismissFallback()
-            self.fallbackCompletion?(success, message)
-            self.fallbackCompletion = nil
-        }
-    }
-
-    private func dismissFallback() {
-        fallbackContainer?.dismiss(animated: true, completion: nil)
-        fallbackContainer = nil
+        presenter.present(nav, animated: true)
     }
 
     // MARK: - Validation
@@ -357,7 +290,17 @@ final class ClaudeAccountAuth: NSObject {
     // MARK: - Logout
 
     func logout() {
-        // Remove cookies for claude.ai domains.
+        // Remove cookies for claude.ai domains from WKWebView store.
+        let wkStore = WKWebsiteDataStore.default().httpCookieStore
+        wkStore.getAllCookies { cookies in
+            for cookie in cookies {
+                let domain = cookie.domain.lowercased()
+                if domain.contains("claude.ai") {
+                    wkStore.delete(cookie, completionHandler: nil)
+                }
+            }
+        }
+        // Remove cookies for claude.ai domains from shared HTTP cookie storage.
         let storage = HTTPCookieStorage.shared
         let cookies = storage.cookies ?? []
         for cookie in cookies {
@@ -370,17 +313,5 @@ final class ClaudeAccountAuth: NSObject {
         _ = KeychainStore.shared.delete(lastActiveOrgKey)
         SettingsStore.shared.accountEmail = ""
         SettingsStore.shared.authMode = "apiKey"
-    }
-}
-
-// MARK: - SFSafariViewControllerDelegate
-
-extension ClaudeAccountAuth: SFSafariViewControllerDelegate {
-    func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
-        guard !isFallbackValidating else { return }
-        // Only validate if fallback container not handling.
-        if fallbackContainer == nil {
-            validate { _, _ in }
-        }
     }
 }

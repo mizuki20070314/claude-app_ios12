@@ -23,10 +23,10 @@ existing API-key path or surfaces `AnthropicError.accountChatUnsupported`.
 ## Organization resolver
 
 1. If `ClaudeAccountAuth.shared.lastActiveOrg` is non-empty, use it as the org UUID.
-2. Otherwise `GET https://claude.ai/api/organizations` with the session cookie and parse the
-   first available organization UUID from `account.memberships[].organization.uuid`,
-   `memberships[].organization.uuid`, `organizations[].uuid`, or top-level `uuid` /
-   `organization_uuid` / `organizationId`.
+2. Otherwise `GET https://claude.ai/api/organizations` with the session cookie. The response is
+   a JSON array of orgs, each with `uuid` and `capabilities` (array of strings). Select the org
+   whose capabilities contain "chat"; if none, the first org that does not only have "api"
+   capabilities. (Users may have both a chat org and an API org.)
 3. Store the resolved UUID in Keychain via `ClaudeAccountAuth.storeLastActiveOrg(_:)`.
 4. Best-effort `GET https://claude.ai/api/bootstrap/{org}/app_start?growthbook_format=sdk&include_system_prompts=false`
    is fired (non-blocking) for validation.
@@ -55,11 +55,11 @@ Body fields:
 - `files`: `[]`
 - `rendering_mode`: `"messages"`
 - `input_mode`: `"text"`
-- `parent_message_uuid`: `null` (or last leaf uuid if available)
+- `parent_message_uuid`: server UUID of the last assistant message (non-error) preceding the final user message; `null` if none
 - `create_conversation_params`: new-chat object or `null`
 - `tools`: `[]`
 - `effort`: `null`
-- `thinking_mode`: `"adaptive"` if extended thinking else `null`
+- `thinking_mode`: `"extended"` if extended thinking else `null` (never "adaptive")
 - `completion_request_id`: client UUID
 - `turn_message_uuids`: `null`
 - `tool_allowlist`: `[]`
@@ -79,9 +79,10 @@ Referer: https://claude.ai/
 
 Uses the existing `SSEParser`. Handles `message_start`, `content_block_start`,
 `content_block_delta`, `content_block_stop`, `message_delta`, `message_stop`,
-`error`, `message_limit`, `ping`, `mutation_accepted`.
-Text and thinking deltas are extracted from `content_block_delta.delta.text/thinking`
-(and direct `delta.text/thinking`).
+`error`. Ignores `conversation_ready`, `notice_poll_hint`, `message_limit`, `ping`,
+`mutation_accepted`, and unknown events. `message_start.message.uuid` is the assistant
+message UUID and `message.parent_uuid` is the human message UUID.
+Text and thinking deltas are extracted exactly once from `content_block_delta`.
 
 ## Attachments
 
@@ -112,8 +113,8 @@ and parses `title`. No API title model call.
 
 ## Limitations
 
-- Multi-turn threading relies on server state; `parent_message_uuid` is currently `null`.
-- Server message UUIDs are not persisted locally.
+- Server message UUIDs are persisted as `Message.serverUuid`.
+- Organization bootstrap caches model ids (`claudeAccountModelIds` / UserDefaults "claudeAccountModelIds").
 - Image attachments are unsupported in account mode.
 - Bootstrap/org endpoints are best-effort; network failures surface as errors.
 - On iOS 12, `ASWebAuthenticationSession` may not expose the claude.ai session cookie to the app; the Safari fallback + manual validation is used in that case.

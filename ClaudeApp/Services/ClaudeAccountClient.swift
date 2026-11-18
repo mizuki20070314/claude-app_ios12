@@ -41,10 +41,13 @@ enum ClaudeAccountError: Error, LocalizedError {
 
 final class ClaudeAccountClient {
     static let shared = ClaudeAccountClient()
-    private init() {}
-
+    private init() {
+        self.claudeAccountModelIds = UserDefaults.standard.stringArray(forKey: "claudeAccountModelIds") ?? []
+    }
+ 
     private(set) var lastOrgId: String?
     private(set) var lastChatId: String?
+    var claudeAccountModelIds: [String] = []
 
     // MARK: - Organization resolution
 
@@ -90,7 +93,7 @@ final class ClaudeAccountClient {
                 completion(.failure(ClaudeAccountError.decoding("organizations")))
                 return
             }
-            guard let org = self.extractOrganizationId(from: json), !org.isEmpty else {
+            guard let org = self.extractChatOrganizationId(from: json), !org.isEmpty else {
                 completion(.failure(ClaudeAccountError.missingOrganization))
                 return
             }
@@ -110,8 +113,17 @@ final class ClaudeAccountClient {
         var req = URLRequest(url: url)
         req.httpMethod = "GET"
         req.setValue(self.cookieHeader(org: org), forHTTPHeaderField: "Cookie")
-        let task = URLSession.shared.dataTask(with: req) { _, response, _ in
+        let task = URLSession.shared.dataTask(with: req) { [weak self] data, response, _ in
             let ok = (response as? HTTPURLResponse)?.statusCode == 200
+            if ok, let data = data, let self = self {
+                if let json = try? JSONSerialization.jsonObject(with: data) {
+                    let ids = self.collectClaudeModelIds(from: json)
+                    if !ids.isEmpty {
+                        self.claudeAccountModelIds = ids
+                        UserDefaults.standard.set(ids, forKey: "claudeAccountModelIds")
+                    }
+                }
+            }
             completion(ok)
         }
         task.resume()
@@ -132,7 +144,8 @@ final class ClaudeAccountClient {
         onThinkingDelta: @escaping (String) -> Void,
         onTextDelta: @escaping (String) -> Void,
         onComplete: @escaping (String?) -> Void,
-        onError: @escaping (Error) -> Void
+        onError: @escaping (Error) -> Void,
+        onMessageStart: ((_ humanUuid: String?, _ assistantUuid: String?) -> Void)? = nil
     ) -> StreamHandle {
         // Account-mode guard.
         guard SettingsStore.shared.authMode == "claudeAccount",
@@ -177,6 +190,19 @@ final class ClaudeAccountClient {
         let completionRequestId = UUID().uuidString.lowercased()
 
         let extendedThinking = SettingsStore.shared.extendedThinking
+
+        // Account-mode model fallback.
+        var resolvedModel = model
+        if SettingsStore.shared.authMode == "claudeAccount" {
+            let ids = self.claudeAccountModelIds
+            if !ids.isEmpty && !ids.contains(resolvedModel) {
+                if ids.contains("claude-sonnet-5-5") {
+                    resolvedModel = "claude-sonnet-5-5"
+                } else {
+                    resolvedModel = ids.first!
+                }
+            }
+        }
 
         let handle = StreamHandle()
         var cancelled = false
@@ -228,13 +254,17 @@ final class ClaudeAccountClient {
                 var body: [String: Any] = [:]
                 body["prompt"] = prompt
                 body["timezone"] = TimeZone.current.identifier
-                body["model"] = model
+                body["model"] = resolvedModel
                 body["attachments"] = [] as [Any]
                 body["files"] = [] as [Any]
                 body["rendering_mode"] = "messages"
                 body["input_mode"] = "text"
-                // parent_message_uuid optional
-                if let pmu = parentMessageUuid, !pmu.isEmpty {
+                // parent_message_uuid: explicit override or computed from messages.
+                let resolvedParent: String? = {
+                    if let pmu = parentMessageUuid, !pmu.isEmpty { return pmu }
+                    return self.parentMessageUuid(from: messages)
+                }()
+                if let pmu = resolvedParent, !pmu.isEmpty {
                     body["parent_message_uuid"] = pmu
                 } else {
                     body["parent_message_uuid"] = NSNull()
@@ -243,7 +273,7 @@ final class ClaudeAccountClient {
                     body["create_conversation_params"] = [
                         "uuid": chatId,
                         "name": "",
-                        "model": model
+                        "model": resolvedModel
                     ] as [String: Any]
                 } else {
                     body["create_conversation_params"] = NSNull()
@@ -251,7 +281,7 @@ final class ClaudeAccountClient {
                 body["tools"] = [] as [Any]
                 body["effort"] = NSNull()
                 if extendedThinking {
-                    body["thinking_mode"] = "adaptive"
+                    body["thinking_mode"] = "extended"
                 } else {
                     body["thinking_mode"] = NSNull()
                 }
@@ -290,7 +320,8 @@ final class ClaudeAccountClient {
                             currentStopReasonSetter: { currentStopReason = $0 },
                             finishComplete: finishComplete,
                             fail: fail,
-                            cancelled: { cancelled }
+                            cancelled: { cancelled },
+                            onMessageStart: onMessageStart
                         )
                     }
                 }
@@ -338,7 +369,8 @@ final class ClaudeAccountClient {
                             currentStopReasonSetter: { currentStopReason = $0 },
                             finishComplete: finishComplete,
                             fail: fail,
-                            cancelled: { cancelled }
+                            cancelled: { cancelled },
+                            onMessageStart: onMessageStart
                         )
                     }
                     if !didFinish && !cancelled {
@@ -369,7 +401,8 @@ final class ClaudeAccountClient {
         currentStopReasonSetter: @escaping (String) -> Void,
         finishComplete: @escaping () -> Void,
         fail: @escaping (Error) -> Void,
-        cancelled: @escaping () -> Bool
+        cancelled: @escaping () -> Bool,
+        onMessageStart: ((_ humanUuid: String?, _ assistantUuid: String?) -> Void)? = nil
     ) {
         if cancelled() { return }
         guard !ev.data.isEmpty else { return }
@@ -377,39 +410,33 @@ final class ClaudeAccountClient {
 
         let type = (ev.event != nil && !ev.event!.isEmpty ? ev.event : nil) ?? (json["type"] as? String)
 
-        if type == "ping" || type == "mutation_accepted" || type == "message_limit" { return }
+        if type == "ping" || type == "mutation_accepted" || type == "message_limit" ||
+           type == "conversation_ready" || type == "notice_poll_hint" { return }
 
         switch type {
         case "message_start":
-            break
+            if let msg = json["message"] as? [String: Any] {
+                let humanUuid = msg["parent_uuid"] as? String
+                let assistantUuid = msg["uuid"] as? String
+                if let cb = onMessageStart {
+                    DispatchQueue.main.async { cb(humanUuid, assistantUuid) }
+                }
+            }
         case "content_block_start":
             break
         case "content_block_delta":
             if let delta = json["delta"] as? [String: Any] {
-                var sentText = false
-                var sentThinking = false
-                if let text = delta["text"] as? String {
-                    DispatchQueue.main.async { onTextDelta(text) }
-                    sentText = true
-                }
-                if let thinking = delta["thinking"] as? String {
-                    DispatchQueue.main.async { onThinkingDelta(thinking) }
-                    sentThinking = true
-                }
                 if let dtype = delta["type"] as? String {
-                    if !sentText, dtype == "text_delta", let text = delta["text"] as? String {
+                    if dtype == "text_delta", let text = delta["text"] as? String {
                         DispatchQueue.main.async { onTextDelta(text) }
-                    }
-                    if !sentThinking, dtype == "thinking_delta", let thinking = delta["thinking"] as? String {
+                    } else if dtype == "thinking_delta", let thinking = delta["thinking"] as? String {
                         DispatchQueue.main.async { onThinkingDelta(thinking) }
                     }
-                }
-                // Nested delta forms
-                if let nested = delta["delta"] as? [String: Any] {
-                    if let text = nested["text"] as? String {
+                } else {
+                    if let text = delta["text"] as? String {
                         DispatchQueue.main.async { onTextDelta(text) }
                     }
-                    if let thinking = nested["thinking"] as? String {
+                    if let thinking = delta["thinking"] as? String {
                         DispatchQueue.main.async { onThinkingDelta(thinking) }
                     }
                 }
@@ -539,6 +566,68 @@ final class ClaudeAccountClient {
             if let u = dict["uuid"] as? String ?? dict["organization_uuid"] as? String ?? dict["organizationId"] as? String {
                 return u
             }
+        }
+        return nil
+    }
+
+    private func extractChatOrganizationId(from json: Any) -> String? {
+        // Prefer org whose capabilities contain "chat".
+        if let arr = json as? [[String: Any]] {
+            var fallback: String? = nil
+            for item in arr {
+                let uuid = item["uuid"] as? String ?? item["organization_uuid"] as? String ?? item["organizationId"] as? String
+                let caps = item["capabilities"] as? [String] ?? []
+                if caps.contains("chat") {
+                    if let u = uuid, !u.isEmpty { return u }
+                }
+                if fallback == nil {
+                    // first org that does not only have "api" capabilities
+                    if !(caps.count == 1 && caps.first == "api") {
+                        if let u = uuid, !u.isEmpty { fallback = u }
+                    }
+                }
+            }
+            if let f = fallback { return f }
+            if let first = arr.first {
+                return first["uuid"] as? String ?? first["organization_uuid"] as? String ?? first["organizationId"] as? String
+            }
+            return nil
+        }
+        // Fallback to existing extraction for non-array responses.
+        return self.extractOrganizationId(from: json)
+    }
+
+    private func collectClaudeModelIds(from json: Any) -> [String] {
+        var result: [String] = []
+        var seen = Set<String>()
+        func walk(_ obj: Any, key: String?) {
+            if let dict = obj as? [String: Any] {
+                for (k, v) in dict {
+                    walk(v, key: k)
+                }
+            } else if let arr = obj as? [Any] {
+                for v in arr { walk(v, key: key) }
+            } else if let s = obj as? String {
+                if let k = key, (k == "model" || k == "id"), s.hasPrefix("claude") {
+                    if !seen.contains(s) { seen.insert(s); result.append(s) }
+                }
+            }
+        }
+        walk(json, key: nil)
+        return result
+    }
+
+    func parentMessageUuid(from messages: [Message]) -> String? {
+        // serverUuid of last assistant (non-error) preceding final user message
+        guard let lastUserIndex = messages.lastIndex(where: { $0.role == .user }) else { return nil }
+        // search backwards before lastUserIndex
+        var i = lastUserIndex - 1
+        while i >= 0 {
+            let m = messages[i]
+            if m.role == .assistant && !m.isError {
+                if let u = m.serverUuid, !u.isEmpty { return u }
+            }
+            i -= 1
         }
         return nil
     }

@@ -5,6 +5,17 @@ final class ModelPickerViewController: UIViewController {
     private let onSelect: (ModelOption) -> Void
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    private var availableModels: [ModelOption] {
+        if SettingsStore.shared.authMode == "claudeAccount" {
+            let ids = ClaudeAccountClient.shared.claudeAccountModelIds
+            if !ids.isEmpty {
+                let filtered = ModelOption.all.filter { ids.contains($0.id) }
+                if !filtered.isEmpty { return filtered }
+            }
+        }
+        return ModelOption.all
+    }
+
     private var extendedSwitch: UISwitch?
 
     init(selectedId: String, onSelect: @escaping (ModelOption) -> Void) {
@@ -77,12 +88,12 @@ final class ModelPickerViewController: UIViewController {
 
 extension ModelPickerViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return ModelOption.all.count
+        return availableModels.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
-        let model = ModelOption.all[indexPath.row]
+        let model = availableModels[indexPath.row]
         cell.textLabel?.text = model.displayName
         cell.detailTextLabel?.text = model.description
         cell.detailTextLabel?.numberOfLines = 2
@@ -96,7 +107,7 @@ extension ModelPickerViewController: UITableViewDataSource, UITableViewDelegate 
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let model = ModelOption.all[indexPath.row]
+        let model = availableModels[indexPath.row]
         onSelect(model)
         dismiss(animated: true)
     }

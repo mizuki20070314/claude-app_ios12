@@ -61,7 +61,8 @@ final class AnthropicClient {
         onThinkingDelta: @escaping (String) -> Void,
         onTextDelta: @escaping (String) -> Void,
         onComplete: @escaping (String?) -> Void,
-        onError: @escaping (Error) -> Void
+        onError: @escaping (Error) -> Void,
+        onMessageStart: ((_ humanUuid: String?, _ assistantUuid: String?) -> Void)? = nil
     ) -> StreamHandle {
         let settings = SettingsStore.shared
         if settings.authMode == "claudeAccount" {
@@ -79,7 +80,8 @@ final class AnthropicClient {
                     onThinkingDelta: onThinkingDelta,
                     onTextDelta: onTextDelta,
                     onComplete: onComplete,
-                    onError: onError
+                    onError: onError,
+                    onMessageStart: onMessageStart
                 )
             }
             let session = URLSession(configuration: .ephemeral)
